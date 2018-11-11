@@ -3,7 +3,7 @@ from Voronoi import *
 from Terrain import *
 from random import *
 
-MAP_SIZE = 600
+MAP_SIZE = 3000
 
 
 def keyPressed(event, data):
@@ -48,6 +48,7 @@ def makeMap(data):
     redrawAllWrapper(canvas, data)
 
     data.map = Map(data.map)
+    data.map.spawnLand()
     redrawAllWrapper(canvas, data)
     return canvas
 
