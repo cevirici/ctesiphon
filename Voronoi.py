@@ -5,6 +5,7 @@
 # # --- --- --- ---
 
 from Geometry import *
+from Graphics import *
 from heapq import *
 
 
@@ -40,10 +41,12 @@ class Mapmaker:
         self.done = False
 
     def isOutside(self, vertex):
+        # Checks if a given vertex is out of bounds or on the border
         return vertex[0] <= 0 or vertex[0] >= self.width or \
             vertex[1] <= 0 or vertex[1] >= self.height
 
     def isInside(self, vertex):
+        # Checks if a given vertex is inbounds or on the border
         return vertex[0] >= 0 and vertex[0] <= self.height and \
             vertex[1] >= 0 and vertex[1] <= self.height
 
@@ -112,8 +115,11 @@ class Mapmaker:
     def newParabola(self, focus):
         # Handling the new parabola event
         if not self.frontLine:
+            # If the frontline is null, just add the new parabola
             self.frontLine.append(focus)
         else:
+            # Look for the foremost intersection - this is the parabola to be
+            # intersected - pass it to the insertParabola function
             intersects = []
             for curve in self.frontLine:
                 intersect = intersectParabola(focus[0], curve, self.sweepPos)
@@ -124,20 +130,25 @@ class Mapmaker:
             self.insertParabola(focus, target[1], vertex)
 
     def removeParabola(self, curve_set):
+        # Handling the remove parabola event
         for i in range(len(self.frontLine) - 2):
+            # Check to see if the correct sequence of 3 parabolas occurs
             if len([k for k in range(3)
                     if self.frontLine[i + k] == curve_set[k]]) == 3:
                 vertex = tripleIntersect(*self.frontLine[i: i + 3],
                                          self.sweepPos)
 
+                # For each curve, generate a ray
                 for j in range(3):
                     edgeIndex = ordered((curve_set[j], curve_set[(j + 1) % 3]))
                     factor = 1 if j == 2 else -1
+                    # Find the direction (+x or -x) that the ray points
                     bias = -factor if edgeIndex[1][0] > vertex[0] else factor
                     self.edgeInsert(edgeIndex, vertex, bias)
 
                 del self.frontLine[i + 1]
 
+                # Check for new intersection events
                 if i > 0:
                     self.checkIntersectEvent(self.frontLine[i - 1: i + 2])
 
@@ -146,11 +157,13 @@ class Mapmaker:
                 break
 
     def extendEdges(self):
+        # Extend unfinished rays to intersect the edge of the map
         for edgeIndex in self.edges:
             gradient = (edgeIndex[1][0] - edgeIndex[0][0]) /\
                 (edgeIndex[0][1] - edgeIndex[1][1])
 
             for edge in self.edges[edgeIndex]:
+                # Check each edge for unfinished ends
                 if edge[0] is None:
                     port = 0
                 elif edge[1] is None:
@@ -159,6 +172,8 @@ class Mapmaker:
                     continue
 
                 if self.isInside(edge[1 - port]):
+                    # Add the appropriate edge endpoint - note that this is
+                    # always at the leftmost or rightmost edge
                     vertexX = self.width * port
                     vertexY = (vertexX - edge[1 - port][0]) * gradient + \
                         edge[1 - port][1]
@@ -167,6 +182,7 @@ class Mapmaker:
                     for center in edgeIndex:
                         self.vertices[center].add(vertex)
                 else:
+                    # Remove edges that are entirely outside bounds
                     self.edges[edgeIndex].remove(edge)
                     for center in edgeIndex:
                         for vertex in edge:
@@ -174,25 +190,33 @@ class Mapmaker:
                     del edge
 
     def truncateEdges(self):
+        # Truncate edges that exceed the map boundaries
         def truncatedEdge(edge, factor, edgeIndex):
+            # Return the truncated edge - factor indicates whether it
+            # is in the +x or -x direction
             gradient = (edgeIndex[1][0] - edgeIndex[0][0]) / \
                 (edgeIndex[0][1] - edgeIndex[1][1])
 
             hTarg = (1 - factor) * self.width / 2
             origin = edge[(1 + factor) // 2]
 
+            # Calculate the intersection with the top / bottom
             vertical = 0 if gradient * factor > 0 else self.height
             vChoice = (origin[0] + (vertical - origin[1]) / gradient,
                        vertical)
+
+            # Calculate the intersection with the left / right
             hShift = (hTarg - origin[0]) * gradient
             hChoice = (hTarg, origin[1] + hShift)
 
+            # If one is outbounds, return the other
             if self.isInside(hChoice):
                 return [hChoice, origin][::factor]
             else:
                 return [vChoice, origin][::factor]
 
         def truncateAndReplace(edge, factor, edgeIndex):
+            # Truncate an edge, replace the relevant vertices, and return it
             newEdge = truncatedEdge(edge, factor, edgeIndex)
             port = (1 - factor) // 2
             vertex = newEdge[port]
@@ -202,16 +226,49 @@ class Mapmaker:
             self.edgeVertices[vertex] = edgeIndex
             return newEdge
 
+        def truncateExternal(edge, edgeIndex):
+            # Truncates a fully external edge
+            gradient = (edgeIndex[1][0] - edgeIndex[0][0]) / \
+                (edgeIndex[0][1] - edgeIndex[1][1])
+            # Look at the possible points to be chosen
+            hShifts = [-edge[0][0],
+                       -edge[0][1] / gradient,
+                       self.width - edge[0][0],
+                       (self.height - edge[0][0]) / gradient]
+            # This will leave 0, 1 or 2 possibilities
+            hShifts = [shift for shift in hShifts if
+                       shift > 0 and shift < edge[1][0] - edge[0][0]]
+            hShifts.sort()
+            if len(hShifts) > 2:
+                raise Exception
+            elif len(hShifts) == 2:
+                newEdge = [(hShifts[i] + edge[0][0],
+                            hShifts[i] * gradient + edge[0][1])
+                           for i in range(2)]
+                for i in range(2):
+                    for center in edgeIndex:
+                        self.vertices[center].discard(edge[i])
+                        self.vertices[center].add(newEdge[i])
+                    self.edgeVertices[newEdge[i]] = edgeIndex
+                return newEdge
+            else:
+                for i in range(2):
+                    for center in edgeIndex:
+                        self.vertices[center].discard(edge[i])
+                return edge
+
         for edgeIndex in self.edges:
             output = []
-
+            # For each end of an edge that's out of bounds, truncate it.
             for edge in self.edges[edgeIndex]:
-                if self.isOutside(edge[0]):
-                    if self.isInside(edge[1]):
+                if self.isOutside(edge[0]) and self.isOutside(edge[1]):
+                    edge = truncateExternal(edge, edgeIndex)
+                else:
+                    if self.isOutside(edge[0]):
                         edge = truncateAndReplace(edge, 1, edgeIndex)
 
-                if self.isOutside(edge[1]):
-                    edge = truncateAndReplace(edge, -1, edgeIndex)
+                    if self.isOutside(edge[1]):
+                        edge = truncateAndReplace(edge, -1, edgeIndex)
 
                 if self.isInside(edge[0]) and self.isInside(edge[1]):
                     output.append(edge)
@@ -225,6 +282,8 @@ class Mapmaker:
             self.edges[edgeIndex] = output
 
     def arrangeRegions(self):
+        # Arrange the vertices within each region such that they're in a
+        # clockwise order - this facilitates drawing later.
         for center in self.pointSet:
             output = []
             vertices = self.vertices[center]
@@ -242,6 +301,7 @@ class Mapmaker:
 
     # Insert corners
     def insertBorders(self):
+        # Insert edges on the boarder of the map
         def edgeMetric(point):
             if point[1] == 0:
                 return point[0]
@@ -262,16 +322,20 @@ class Mapmaker:
                       (0, -1)]
 
         last = (0, 0)
+        # Sort the edge vertices in clockwise order
         firstCenter = sorted(self.pointSet, key=lambda x: dist((0, 0), x))[0]
         self.vertices[firstCenter].add((0, 0))
         lastCenters = [firstCenter]
         while len(edgeVertexOrder) > 0:
+            # In turn, 'crawl' around the border and append each edge to the
+            # center that's shared by both vertices of the edge
             _, vertex = heappop(edgeVertexOrder)
             center = [c for c in lastCenters if c in
                       self.edgeVertices[vertex]][0]
             if (center, center) not in self.edges:
                 self.edges[(center, center)] = []
 
+            # If you cross a corner, append the corner as well
             if edgeMetric(vertex) > edgeMetric(thresholds[0]):
                 corner = thresholds.pop(0)
                 self.edges[(center, center)].append([last, corner])
@@ -285,6 +349,7 @@ class Mapmaker:
         self.edges[(firstCenter, firstCenter)].append([last, (0, 0)])
 
     def step(self):
+        # Advance the Voronoi algorithm once
         if not self.done:
             if len(self.queue) > 0:
                 event = heappop(self.queue)
@@ -312,22 +377,11 @@ class Mapmaker:
                          vertices in self.vertices.values()]
             Mapmaker.__init__(self, newPoints, self.width, self.height)
 
-    def draw_parabola(self, canvas, data, focus, directrix):
-        coords = []
-        for xFact in range(101):
-            x = data.width / 100 * xFact
-            y = intersectParabola(x, focus, directrix)
-            coords.append((x, y))
-        canvas.create_line(coords, fill='red', smooth='true')
-
-    def scale(self, point, data):
-        return [point[i] * data.zoom - data.viewPos[i] for i in range(2)]
-
     def draw(self, canvas, data):
         centerR = 2
         vertexR = 2
         for vertex in self.pointSet:
-            sVertex = self.scale(vertex, data)
+            sVertex = scale(vertex, data)
             canvas.create_oval(sVertex[0] - centerR,
                                sVertex[1] - centerR,
                                sVertex[0] + centerR,
@@ -336,13 +390,13 @@ class Mapmaker:
         for edgeIndex in self.edges:
             for edge in self.edges[edgeIndex]:
                 if edge[0] is not None and edge[1] is not None:
-                    canvas.create_line([self.scale(point, data)
+                    canvas.create_line([scale(point, data)
                                         for point in edge])
                 else:
                     gradient = (edgeIndex[1][0] - edgeIndex[0][0]) /\
                         (edgeIndex[0][1] - edgeIndex[1][1])
                     point = edge[0] if edge[1] is None else edge[1]
-                    sPoint = self.scale(point, data)
+                    sPoint = scale(point, data)
                     canvas.create_oval(sPoint[0] - vertexR,
                                        sPoint[1] - vertexR,
                                        sPoint[0] + vertexR,

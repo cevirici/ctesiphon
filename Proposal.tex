@@ -56,7 +56,7 @@ In general, Ctesiphon will be more of a simulation than a game, like watching an
 \textbf{\large{Structural Plan}}
 Each large feature to be implemented will be segregated into a separate file.
 \begin{itemize}
-    \item \textbf{__init__} - The main file, calls the other files as required.
+    \item \textbf{init} - The main file, calls the other files as required.
     \item \textbf{Mapmaking} - The methods to generate the world, which will be dynamically generated. This will include two submodules:
     \begin{itemize}
         \item \textbf{Voronoi} - The map will be generated using a Voronoi diagram, to introduce irregularity and variety. Since this is pretty complicated, it will be in its own module.
@@ -91,8 +91,6 @@ Here we will briefly discuss the implementation of each of the features.
 
     \item \textbf{City Mechanics}: Cities have their own \textit{Fertility} and \textit{Economic Output}, which are functions of the underlying geography and improvements made by the polities that own the city.
 \end{itemize}
-
-\\
 \hrule
 \textbf{\large{Version Control Plan}}
 I'll be storing my project in a Github repository.

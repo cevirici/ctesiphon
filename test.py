@@ -1,6 +1,9 @@
 from tkinter import *
 from Voronoi import *
+from Terrain import *
 from random import *
+
+MAP_SIZE = 600
 
 
 def keyPressed(event, data):
@@ -30,7 +33,7 @@ def makeMap(data):
     canvas.pack()
 
     data.points = [(random() * data.width, random() * data.height)
-                   for i in range(4000)]
+                   for i in range(MAP_SIZE)]
     data.map = Mapmaker(data.points, data.width, data.height)
     data.viewPos = [0, 0]
     data.zoom = 1
@@ -45,6 +48,8 @@ def makeMap(data):
     redrawAllWrapper(canvas, data)
 
     data.map = Map(data.map)
+    redrawAllWrapper(canvas, data)
+    return canvas
 
 
 def run(width=700, height=700):
@@ -62,7 +67,7 @@ def run(width=700, height=700):
     data.height = height
     data.root = Tk()
     data.root.resizable(width=False, height=False)  # prevents resizing window
-    makeMap(data)
+    canvas = makeMap(data)
     # create the root and the canvas
     # set up events
     data.root.bind("<Key>", lambda event:
