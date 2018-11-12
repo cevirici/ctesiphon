@@ -47,7 +47,7 @@ class Mapmaker:
 
     def isInside(self, vertex):
         # Checks if a given vertex is inbounds or on the border
-        return vertex[0] >= 0 and vertex[0] <= self.height and \
+        return vertex[0] >= 0 and vertex[0] <= self.width and \
             vertex[1] >= 0 and vertex[1] <= self.height
 
     def addEvent(self, event):
@@ -191,84 +191,42 @@ class Mapmaker:
 
     def truncateEdges(self):
         # Truncate edges that exceed the map boundaries
-        def truncatedEdge(edge, factor, edgeIndex):
-            # Return the truncated edge - factor indicates whether it
-            # is in the +x or -x direction
-            gradient = (edgeIndex[1][0] - edgeIndex[0][0]) / \
-                (edgeIndex[0][1] - edgeIndex[1][1])
+        def truncatedEdge(edge):
+            gradient = (edge[0][1] - edge[1][1]) / (edge[0][0] - edge[1][0])
+            offset = edge[0][1] - edge[0][0] * gradient
+            candidates = [(0, offset),
+                          (self.width, self.width * gradient + offset),
+                          (-offset / gradient, 0),
+                          ((self.height - offset) / gradient, self.height),
+                          edge[0], edge[1]]
+            candidates = [point for point in candidates if
+                          edge[0][0] <= point[0] <= edge[1][0] and
+                          self.isInside(point)]
+            candidates.sort(key=lambda x: x[0])
 
-            hTarg = (1 - factor) * self.width / 2
-            origin = edge[(1 + factor) // 2]
-
-            # Calculate the intersection with the top / bottom
-            vertical = 0 if gradient * factor > 0 else self.height
-            vChoice = (origin[0] + (vertical - origin[1]) / gradient,
-                       vertical)
-
-            # Calculate the intersection with the left / right
-            hShift = (hTarg - origin[0]) * gradient
-            hChoice = (hTarg, origin[1] + hShift)
-
-            # If one is outbounds, return the other
-            if self.isInside(hChoice):
-                return [hChoice, origin][::factor]
+            if len(candidates) >= 2:
+                return candidates
             else:
-                return [vChoice, origin][::factor]
-
-        def truncateAndReplace(edge, factor, edgeIndex):
-            # Truncate an edge, replace the relevant vertices, and return it
-            newEdge = truncatedEdge(edge, factor, edgeIndex)
-            port = (1 - factor) // 2
-            vertex = newEdge[port]
-            for center in edgeIndex:
-                self.vertices[center].discard(edge[port])
-                self.vertices[center].add(newEdge[port])
-            self.edgeVertices[vertex] = edgeIndex
-            return newEdge
-
-        def truncateExternal(edge, edgeIndex):
-            # Truncates a fully external edge
-            gradient = (edgeIndex[1][0] - edgeIndex[0][0]) / \
-                (edgeIndex[0][1] - edgeIndex[1][1])
-            # Look at the possible points to be chosen
-            hShifts = [-edge[0][0],
-                       -edge[0][1] / gradient,
-                       self.width - edge[0][0],
-                       (self.height - edge[0][0]) / gradient]
-            # This will leave 0, 1 or 2 possibilities
-            hShifts = [shift for shift in hShifts if
-                       shift > 0 and shift < edge[1][0] - edge[0][0]]
-            hShifts.sort()
-            if len(hShifts) > 2:
-                raise Exception
-            elif len(hShifts) == 2:
-                newEdge = [(hShifts[i] + edge[0][0],
-                            hShifts[i] * gradient + edge[0][1])
-                           for i in range(2)]
-                for i in range(2):
-                    for center in edgeIndex:
-                        self.vertices[center].discard(edge[i])
-                        self.vertices[center].add(newEdge[i])
-                    self.edgeVertices[newEdge[i]] = edgeIndex
-                return newEdge
-            else:
-                for i in range(2):
-                    for center in edgeIndex:
-                        self.vertices[center].discard(edge[i])
                 return edge
+
+        def truncateAndReplace(edge, edgeIndex):
+            # Truncate an edge, replace the relevant vertices, and return it
+            newEdge = truncatedEdge(edge)
+            for i in range(2):
+                for center in edgeIndex:
+                    self.vertices[center].discard(edge[i])
+                    self.vertices[center].add(newEdge[i])
+                if self.isInside(newEdge[i]) and self.isOutside(newEdge[i]):
+                    self.edgeVertices[newEdge[i]] = edgeIndex
+
+            return newEdge
 
         for edgeIndex in self.edges:
             output = []
             # For each end of an edge that's out of bounds, truncate it.
             for edge in self.edges[edgeIndex]:
-                if self.isOutside(edge[0]) and self.isOutside(edge[1]):
-                    edge = truncateExternal(edge, edgeIndex)
-                else:
-                    if self.isOutside(edge[0]):
-                        edge = truncateAndReplace(edge, 1, edgeIndex)
-
-                    if self.isOutside(edge[1]):
-                        edge = truncateAndReplace(edge, -1, edgeIndex)
+                if self.isOutside(edge[0]) or self.isOutside(edge[1]):
+                    edge = truncateAndReplace(edge, edgeIndex)
 
                 if self.isInside(edge[0]) and self.isInside(edge[1]):
                     output.append(edge)
