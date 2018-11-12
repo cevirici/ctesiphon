@@ -95,6 +95,8 @@ def findCentroid(poly):
     poly.append(poly[0])
     A = 0.5 * sum([poly[i][0] * poly[i + 1][1] -
                    poly[i + 1][0] * poly[i][1] for i in range(n)])
+    if A == 0:
+        return None
     Cx = 1 / 6 / A * sum([(poly[i][0] + poly[i + 1][0]) *
                           (poly[i][0] * poly[i + 1][1] -
                            poly[i + 1][0] * poly[i][1]) for i in range(n)])

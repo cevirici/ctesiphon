@@ -171,23 +171,13 @@ class Mapmaker:
                 else:
                     continue
 
-                if self.isInside(edge[1 - port]):
-                    # Add the appropriate edge endpoint - note that this is
-                    # always at the leftmost or rightmost edge
-                    vertexX = self.width * port
-                    vertexY = (vertexX - edge[1 - port][0]) * gradient + \
-                        edge[1 - port][1]
-                    vertex = (vertexX, vertexY)
-                    edge[port] = vertex
-                    for center in edgeIndex:
-                        self.vertices[center].add(vertex)
-                else:
-                    # Remove edges that are entirely outside bounds
-                    self.edges[edgeIndex].remove(edge)
-                    for center in edgeIndex:
-                        for vertex in edge:
-                            self.vertices[center].discard(vertex)
-                    del edge
+                vertexX = self.width * port
+                vertexY = (vertexX - edge[1 - port][0]) * gradient + \
+                    edge[1 - port][1]
+                vertex = (vertexX, vertexY)
+                edge[port] = vertex
+                for center in edgeIndex:
+                    self.vertices[center].add(vertex)
 
     def truncateEdges(self):
         # Truncate edges that exceed the map boundaries
@@ -212,12 +202,17 @@ class Mapmaker:
         def truncateAndReplace(edge, edgeIndex):
             # Truncate an edge, replace the relevant vertices, and return it
             newEdge = truncatedEdge(edge)
-            for i in range(2):
+            # Discard first, then add - else, we might end up accidentally
+            # discarding a point we were supposed to add!
+            for point in edge:
                 for center in edgeIndex:
-                    self.vertices[center].discard(edge[i])
-                    self.vertices[center].add(newEdge[i])
-                if self.isInside(newEdge[i]) and self.isOutside(newEdge[i]):
-                    self.edgeVertices[newEdge[i]] = edgeIndex
+                    self.vertices[center].discard(point)
+
+            for point in newEdge:
+                for center in edgeIndex:
+                    self.vertices[center].add(point)
+                if self.isInside(point) and self.isOutside(point):
+                    self.edgeVertices[point] = edgeIndex
 
             return newEdge
 
@@ -244,7 +239,7 @@ class Mapmaker:
         # clockwise order - this facilitates drawing later.
         for center in self.pointSet:
             output = []
-            vertices = self.vertices[center]
+            vertices = set(self.vertices[center])
             while len(vertices) > 0:
                 vertex = vertices.pop()
                 if len(output) < 2:
@@ -255,11 +250,12 @@ class Mapmaker:
                         if isClockwise([output[i], vertex, output[j]]):
                             output.insert(j, vertex)
                             break
+
             self.vertices[center] = output
 
     # Insert corners
     def insertBorders(self):
-        # Insert edges on the boarder of the map
+        # Insert edges on the border of the map
         def edgeMetric(point):
             if point[1] == 0:
                 return point[0]
@@ -331,13 +327,15 @@ class Mapmaker:
         # Applies a Lloyd reduction on the Voronoi diagram (replaces each
         # vertex with its centroid)
         if self.done:
-            newPoints = [findCentroid(vertices) for
-                         vertices in self.vertices.values()]
+            newPoints = []
+            for center in self.vertices:
+                centroid = findCentroid(self.vertices[center])
+                if centroid:
+                    newPoints.append(centroid)
             Mapmaker.__init__(self, newPoints, self.width, self.height)
 
     def draw(self, canvas, data):
-        centerR = 2
-        vertexR = 2
+        centerR = 3
         for vertex in self.pointSet:
             sVertex = scale(vertex, data)
             canvas.create_oval(sVertex[0] - centerR,
@@ -345,28 +343,11 @@ class Mapmaker:
                                sVertex[0] + centerR,
                                sVertex[1] + centerR)
 
-        for edgeIndex in self.edges:
-            for edge in self.edges[edgeIndex]:
-                if edge[0] is not None and edge[1] is not None:
-                    canvas.create_line([scale(point, data)
-                                        for point in edge])
-                else:
-                    gradient = (edgeIndex[1][0] - edgeIndex[0][0]) /\
-                        (edgeIndex[0][1] - edgeIndex[1][1])
-                    point = edge[0] if edge[1] is None else edge[1]
-                    sPoint = scale(point, data)
-                    canvas.create_oval(sPoint[0] - vertexR,
-                                       sPoint[1] - vertexR,
-                                       sPoint[0] + vertexR,
-                                       sPoint[1] + vertexR)
-                    norm = (1 + gradient ** 2) ** (0.5)
-                    delt = [10 / norm, 10 * gradient / norm] \
-                        if edge[1] is None \
-                        else [-10 / norm, -10 * gradient / norm]
-
-                    canvas.create_line(sPoint[0], sPoint[1],
-                                       sPoint[0] + delt[0],
-                                       sPoint[1] + delt[1])
+            for i in range(len(self.vertices[vertex])):
+                pointA = scale(self.vertices[vertex][i], data)
+                nxt = (i + 1) % len(self.vertices[vertex])
+                pointB = scale(self.vertices[vertex][nxt], data)
+                canvas.create_line(pointA, pointB)
 
         canvas.create_line(0, self.sweepPos,
                            data.width, self.sweepPos)
