@@ -64,6 +64,24 @@ class Map:
         # Returns a random city
         return choice(tuple(self.cities.values()))
 
+    def findClosestCity(self, point, data):
+        # Returns the closest city from a point on screen
+        toCheck = [self.centerCity]
+        checked = set()
+        bestDistance = float('inf')
+        closest = None
+        while len(toCheck) > 0:
+            city = toCheck.pop(0)
+            if city not in checked:
+                if dist(city.center, point) < bestDistance:
+                    bestDistance = dist(city.center, point)
+                    closest = city
+                checked.add(city)
+                for neigh in city.neighbors:
+                    if neigh not in checked and neigh.visible(data):
+                        toCheck.append(neigh)
+        return closest
+
     def landDump(self, source, size, check, altitude, falloff, jaggedness):
         # Starting from a 'source' city, raise it to a certain altitude and
         # raise its neighbors to a proportion of it, until some number of
@@ -256,3 +274,12 @@ class Map:
                                fill=rgbToColor(DARK_OCEAN),
                                smooth=True,
                                width=2 * data.zoom)
+
+        # Highlighting active province
+        if data.activeCity:
+            sVertices = [scale(vertex, data) for vertex in
+                         data.activeCity.vertices]
+            canvas.create_polygon(sVertices,
+                                  fill='',
+                                  outline=rgbToColor(HIGHLIGHT),
+                                  width=1.5 * data.zoom)

@@ -12,8 +12,13 @@ GRASS_COLOR = (131, 214, 131)
 DARK_GRASS = (19, 135, 27)
 OCEAN_COLOR = (125, 144, 225)
 DARK_OCEAN = (25, 44, 225)
+HIGHLIGHT = (235, 248, 95)
 
-LOADING_FONT = ('Banschrift Light', 48)
+LOADING_FONT = ('Garamond', 48)
+HUD_FONT = ('Garamond', 22)
+
+BORDER = 15
+ZOOM_FACTOR = 1.5
 
 # --- End Constants ---
 
@@ -38,10 +43,10 @@ def mixColors(rgb_1, rgb_2, factor):
 
 def limitView(data):
     # Keep the view within bounds
-    maxX = data.map.width - data.viewSize[0] / data.zoom
-    maxY = data.map.height - data.viewSize[1] / data.zoom
-    data.viewPos[0] = max(0, min(maxX, data.viewPos[0]))
-    data.viewPos[1] = max(0, min(maxY, data.viewPos[1]))
+    maxX = data.map.width + BORDER - data.viewSize[0] / data.zoom
+    maxY = data.map.height + BORDER - data.viewSize[1] / data.zoom
+    data.viewPos[0] = max(-BORDER, min(maxX, data.viewPos[0]))
+    data.viewPos[1] = max(-BORDER, min(maxY, data.viewPos[1]))
 
 
 def recheckCenter(data):
@@ -73,16 +78,18 @@ def zoom(data, factor, x, y):
 
 
 def scroll(data, margin, x, y):
-    ZOOM_FACTOR = 4 * data.zoom
-    if 0 < x < margin:
-        data.viewPos[0] -= (margin - x) / ZOOM_FACTOR
-    elif data.viewSize[0] > x > data.viewSize[0] - margin:
-        data.viewPos[0] += (x - data.viewSize[0] + margin) / ZOOM_FACTOR
+    if 0 < x < data.viewSize[0] and 0 < y < data.viewSize[1]:
+        if 0 < x < margin:
+            data.viewPos[0] -= (margin - x) / ZOOM_FACTOR / data.zoom
+        elif data.viewSize[0] > x > data.viewSize[0] - margin:
+            data.viewPos[0] += (x - data.viewSize[0] + margin) / \
+                ZOOM_FACTOR / data.zoom
 
-    if 0 < y < margin:
-        data.viewPos[1] -= (margin - y) / ZOOM_FACTOR
-    elif data.viewSize[1] > y > data.viewSize[1] - margin:
-        data.viewPos[1] += (y - data.viewSize[1] + margin) / ZOOM_FACTOR
+        if 0 < y < margin:
+            data.viewPos[1] -= (margin - y) / ZOOM_FACTOR / data.zoom
+        elif data.viewSize[1] > y > data.viewSize[1] - margin:
+            data.viewPos[1] += (y - data.viewSize[1] + margin) / \
+                ZOOM_FACTOR / data.zoom
 
     limitView(data)
     recheckCenter(data)

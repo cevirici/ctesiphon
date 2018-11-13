@@ -8,6 +8,8 @@ from Graphics import *
 from Geometry import dist
 from math import cos
 
+DEFAULT_NAME = "Uninhabited"
+
 
 def getTemperature(city, wmap):
     latitudeFactor = 1 - cos(2 * pi / wmap.height * city.center[1])
@@ -22,6 +24,8 @@ class City:
         self.vertices = vertices
         self.neighbors = set()
         self.radius = max([dist(self.center, v) for v in self.vertices])
+
+        self.name = DEFAULT_NAME
 
         self.altitude = 0
         self.onRiver = False

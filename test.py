@@ -4,7 +4,7 @@ from Terrain import *
 from random import *
 from PIL import ImageTk
 
-MAP_SIZE = 4000
+MAP_SIZE = 800
 
 
 def timerFired(data):
@@ -28,18 +28,32 @@ def redrawHud(canvas, data):
                         image=data.hudRight)
     canvas.create_image(data.width, data.height, anchor=SE, image=data.hudBot)
 
+    provNamePos = [950, 53]
+    if data.activeCity:
+        canvas.create_text(provNamePos, anchor=NW, justify='left',
+                           text=data.activeCity.name,
+                           fill='white', font=HUD_FONT)
+
 
 def keyPressed(event, data):
-    if event.keysym in ['Left', 'Right', 'Up', 'Down']:
-        mode = ['Left', 'Right', 'Up', 'Down'].index(event.keysym)
-        shift = [(-10, 0), (10, 0), (0, -10), (0, 10)][mode]
-        data.viewPos = [data.viewPos[i] + shift[i] for i in range(2)]
-    elif event.keysym == 'k':
+    if event.keysym == 'k':
         temp = data.map
         data.map = data.oldMap
         data.oldMap = temp
-    elif event.keysym == 'p':
-        print(data.root.winfo_pointerxy())
+
+
+def mousePressed(event, data):
+    if isinstance(data.map, Map):
+        x = event.x - data.mapPos[0]
+        y = event.y - data.mapPos[1]
+        if 0 < x < data.viewSize[0] and 0 < y < data.viewSize[1]:
+            clickPoint = [x / data.zoom + data.viewPos[0],
+                          y / data.zoom + data.viewPos[1]]
+            closest = data.map.findClosestCity(clickPoint, data)
+            if closest:
+                data.activeCity = closest
+            else:
+                data.activeCity = None
 
 
 def mouseWheel(event, data):
@@ -63,11 +77,11 @@ def redrawAllWrapper(canvas, data):
 
 
 def makeMap(canvas, data):
-    data.points = [(random() * data.viewSize[0], random() * data.viewSize[1])
+    data.points = [(random() * data.mapSize[0], random() * data.mapSize[1])
                    for i in range(MAP_SIZE)]
     data.map = Mapmaker(data.points, data.viewSize[0], data.viewSize[1])
     data.viewPos = [100, 100]
-    data.zoom = 3.5
+    data.zoom = 3
     redrawAllWrapper(canvas, data)
 
     for i in range(4):
@@ -78,6 +92,7 @@ def makeMap(canvas, data):
 
     data.map.fullParse()
     redrawAllWrapper(canvas, data)
+
     data.oldMap = data.map
     data.map = Map(data.map, data)
     data.map.spawnLand()
@@ -86,7 +101,10 @@ def makeMap(canvas, data):
 
 
 def init(canvas, data):
+    data.activeCity = None
+    data.mapPos = [30, 30]
     data.viewSize = [900, 900]
+    data.mapSize = data.viewSize
     data.timerDelay = 10
     data.loadingMessage = 'Generating Initial Map'
 
@@ -96,6 +114,10 @@ def init(canvas, data):
 def setup(data):
     def keyPressedWrapper(event, data):
         keyPressed(event, data)
+        redrawAllWrapper(data.canvas, data)
+
+    def mousePressedWrapper(event, data):
+        mousePressed(event, data)
         redrawAllWrapper(data.canvas, data)
 
     def mouseWheelWrapper(event, data):
@@ -112,9 +134,6 @@ def setup(data):
     data.root = Tk()
     data.root.resizable(width=False, height=False)  # prevents resizing window
 
-    data.mapSize = [900, 900]
-    data.mapPos = [30, 30]
-
     data.canvas = Canvas(data.root, width=windowSize[0], height=windowSize[1])
     data.canvas.configure(bd=0, highlightthickness=0)
     data.canvas.pack()
@@ -122,6 +141,8 @@ def setup(data):
     # set up events
     data.root.bind("<Key>", lambda event:
                    keyPressedWrapper(event, data))
+    data.root.bind("<Button-1>", lambda event:
+                   mousePressedWrapper(event, data))
     data.root.bind("<MouseWheel>", lambda event:
                    mouseWheelWrapper(event, data))
 
