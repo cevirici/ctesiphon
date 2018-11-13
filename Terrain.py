@@ -4,6 +4,7 @@
 # #
 # # --- --- --- ---
 
+from City import *
 from Graphics import *
 from Geometry import dist
 from random import *
@@ -31,44 +32,22 @@ def headingDiff(heading_a, heading_b):
     return raw
 
 
-class City:
-    def __init__(self, center, vertices):
-        self.center = center
-        self.vertices = vertices
-        self.neighbors = set()
-
-        self.altitude = 0
-        self.onRiver = False
-
-    def __hash__(self):
-        return hash(self.center)
-
-    def isCoastal(self):
-        if self.altitude > 0:
-            for neighbor in self.neighbors:
-                if neighbor.altitude <= 0:
-                    return True
-        return False
-
-    def draw(self, canvas, data):
-        sVertices = [scale(vertex, data) for vertex in self.vertices]
-        if self.altitude > 0:
-            color = mixColors(DARK_GRASS, GRASS_COLOR, self.altitude)
-        else:
-            color = mixColors(DARK_OCEAN, OCEAN_COLOR, -self.altitude)
-        canvas.create_polygon(sVertices,
-                              fill=color,
-                              outline='')
-
-
 class Map:
-    def __init__(self, source):
+    def __init__(self, source, data):
         # Imports the geometry from a Mapmaker object
         self.cities = {}
         self.cityCount = len(source.pointSet)
 
+        self.centerCity = None
+        closestDist = float('inf')
+        center = [data.viewPos[i] + data.viewSize[i] / data.zoom / 2
+                  for i in range(2)]
+
         for point in source.pointSet:
             self.cities[point] = City(point, source.vertices[point])
+            if dist(point, center) < closestDist:
+                closestDist = dist(point, center)
+                self.centerCity = self.cities[point]
 
         # Populate adjacency dictionary
         for edge in source.edges:
@@ -251,9 +230,22 @@ class Map:
             else:
                 break
 
+    def drawCities(self, canvas, data):
+        # Draw cities, starting from the center, and spreading out until
+        # the cities are no longer visible
+        toDraw = [self.centerCity]
+        drawn = set()
+        while len(toDraw) > 0:
+            city = toDraw.pop(0)
+            if city not in drawn:
+                city.draw(canvas, data)
+                drawn.add(city)
+                for neigh in city.neighbors:
+                    if neigh not in drawn and neigh.visible(data):
+                        toDraw.append(neigh)
+
     def draw(self, canvas, data):
-        for city in self.cities.values():
-            city.draw(canvas, data)
+        self.drawCities(canvas, data)
 
         for river in self.rivers:
             sRiver = []
@@ -263,4 +255,4 @@ class Map:
             canvas.create_line(sRiver,
                                fill=rgbToColor(DARK_OCEAN),
                                smooth=True,
-                               width=2)
+                               width=2 * data.zoom)

@@ -47,8 +47,8 @@ class Mapmaker:
 
     def isInside(self, vertex):
         # Checks if a given vertex is inbounds or on the border
-        return vertex[0] >= 0 and vertex[0] <= self.width and \
-            vertex[1] >= 0 and vertex[1] <= self.height
+        return 0 <= vertex[0] <= self.width and \
+            0 <= vertex[1] <= self.height
 
     def addEvent(self, event):
         # Add an event into the event queue
@@ -335,19 +335,6 @@ class Mapmaker:
             Mapmaker.__init__(self, newPoints, self.width, self.height)
 
     def draw(self, canvas, data):
-        centerR = 3
-        for vertex in self.pointSet:
-            sVertex = scale(vertex, data)
-            canvas.create_oval(sVertex[0] - centerR,
-                               sVertex[1] - centerR,
-                               sVertex[0] + centerR,
-                               sVertex[1] + centerR)
-
-            for i in range(len(self.vertices[vertex])):
-                pointA = scale(self.vertices[vertex][i], data)
-                nxt = (i + 1) % len(self.vertices[vertex])
-                pointB = scale(self.vertices[vertex][nxt], data)
-                canvas.create_line(pointA, pointB)
-
-        canvas.create_line(0, self.sweepPos,
-                           data.width, self.sweepPos)
+        canvas.create_text(data.width / 2, data.height / 2,
+                           text=data.loadingMessage,
+                           font=LOADING_FONT)
