@@ -42,7 +42,7 @@ def redrawHud(canvas, data):
 def keyPressed(event, data):
     if event.keysym == 'k':
         data.drawMode += 1
-        if data.drawMode == 4:
+        if data.drawMode == 5:
             data.drawMode = 0
 
 

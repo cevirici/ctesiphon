@@ -48,7 +48,11 @@ class City:
         sVertices = [scale(vertex, data) for vertex in self.vertices]
         if data.drawMode == 0:
             if self.altitude > 0:
-                color = mixColors(DARK_GRASS, GRASS_COLOR, self.altitude)
+                if self.vegetation > 0.6:
+                    color = mixColors(DARK_GRASS, FOREST_COLOR,
+                                      self.vegetation)
+                else:
+                    color = mixColors(DARK_GRASS, GRASS_COLOR, self.altitude)
             else:
                 color = mixColors(DARK_OCEAN, OCEAN_COLOR, -self.altitude)
         elif data.drawMode == 1:
@@ -57,6 +61,8 @@ class City:
             color = mixColors(COLD_COLOR, HOT_COLOR, (self.temp + 1) / 2)
         elif data.drawMode == 3:
             color = mixColors(DRY_COLOR, GRASS_COLOR, self.fertility)
+        elif data.drawMode == 4:
+            color = mixColors(GRASS_COLOR, FOREST_COLOR, self.vegetation)
         canvas.create_polygon(sVertices,
                               fill=color,
                               outline='')

@@ -283,10 +283,49 @@ class Map:
         # Cities are more fertile if they're wetter, and a temperate climate.
         # Hotness is less bad than coldness
         for city in self.cities.values():
-            tempFactor = sin(pi / 2 * city.temp ** 2) / 2 + \
-                sin(3 * pi / 2 * city.temp ** 2) / 6
-            waterFactor = city.wetness * 1.5
+            tempFactor = (sin(pi / 2 * city.temp ** 2) +
+                          sin(3 * pi / 2 * city.temp ** 2) / 3) * 0.8
+            waterFactor = city.wetness * 1.2
             city.fertility = (tempFactor + waterFactor) / 2
+
+    def setVegetation(self):
+        # Vegetation is just a random factor + fertility, + forests
+        MIN_FERTILITY = 0.4
+
+        def generateForest(source, size):
+            # Similar to landDump, but makes forests instead
+            frontier = [source]
+            filled = set()
+            while len(filled) < size and len(frontier) > 0:
+                city = frontier.pop(0)
+                # Check if city got filled in twice
+                if city not in filled:
+                    city.vegetation += 0.4
+                    filled.add(city)
+                    expands = [neigh for neigh in city.neighbors
+                               if neigh not in filled and
+                               neigh.vegetation < 0.6 and
+                               neigh.fertility > MIN_FERTILITY and
+                               neigh.altitude > 0]
+
+                    frontier += expands
+
+        minSize = self.cityCount // 300
+        maxSize = self.cityCount // 150
+
+        for city in self.cities.values():
+            city.vegetation = city.fertility * 0.6
+
+        for i in range(self.cityCount // 100):
+            sources = set(self.cities[coord] for coord in self.cities if
+                          self.cities[coord].fertility >= MIN_FERTILITY and
+                          self.cities[coord].vegetation < 0.6 and
+                          self.cities[coord].altitude > 0)
+            if sources:
+                newSource = choice(tuple(sources))
+                generateForest(newSource, randint(minSize, maxSize))
+            else:
+                break
 
     def initializeTerrain(self):
         # Call all the terrain initializing functions
@@ -295,6 +334,7 @@ class Map:
         self.setWetness()
         self.setTemperature()
         self.setFertility()
+        self.setVegetation()
 
     def drawCities(self, canvas, data):
         # Draw cities, starting from the center, and spreading out until
