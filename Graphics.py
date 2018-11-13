@@ -13,6 +13,9 @@ DARK_GRASS = (19, 135, 27)
 OCEAN_COLOR = (125, 144, 225)
 DARK_OCEAN = (25, 44, 225)
 HIGHLIGHT = (235, 248, 95)
+DRY_COLOR = (242, 244, 114)
+COLD_COLOR = (99, 235, 255)
+HOT_COLOR = (242, 56, 56)
 
 LOADING_FONT = ('Garamond', 48)
 HUD_FONT = ('Garamond', 22)
@@ -54,11 +57,17 @@ def recheckCenter(data):
     center = [data.viewPos[i] + data.viewSize[i] / data.zoom / 2
               for i in range(2)]
     closestDist = dist(data.map.centerCity.center, center)
-    neighs = data.map.centerCity.neighbors
-    for city in neighs:
+    toCheck = list(data.map.centerCity.neighbors)
+    checked = set()
+    while len(toCheck) > 0:
+        city = toCheck.pop(0)
+        checked.add(city)
         if dist(city.center, center) < closestDist:
             closestDist = dist(city.center, center)
             data.map.centerCity = city
+            for neigh in city.neighbors:
+                if neigh not in checked:
+                    toCheck.append(neigh)
 
 
 def zoom(data, factor, x, y):

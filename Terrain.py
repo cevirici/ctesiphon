@@ -8,7 +8,7 @@ from City import *
 from Graphics import *
 from Geometry import dist
 from random import *
-from math import atan2, pi
+from math import atan2, pi, sin, cos
 
 
 def getRelief(origin, dest):
@@ -247,6 +247,54 @@ class Map:
                     self.rivers.append(newRiver)
             else:
                 break
+
+    def setWetness(self):
+        # Cities are wetter if they're near rivers or oceans, or equatorial
+        # Assign proximity to water
+        queue = [(city, 0) for city in self.cities.values() if city.isSea() or
+                 city.onRiver]
+        checked = set()
+        avgR = (self.width * self.height / self.cityCount) ** 0.5
+        while len(queue) > 0:
+            city, distance = queue.pop(0)
+            if city not in checked:
+                checked.add(city)
+
+                distFactor = 1 / (distance * avgR / 50 + 1)
+                # Magic rain function
+                latitude = city.center[1] / self.height
+                rainFactor = (0.6 - sin(4 * pi * (latitude - 0.15)) *
+                              sin(4 * pi * (latitude - 0.15) / 3)) / 1.8
+                city.wetness = (distFactor + rainFactor) / 2
+                for neigh in city.neighbors:
+                    queue.append((neigh, distance + 1))
+
+    def setTemperature(self):
+        # Cities are colder if they're higher up, or near a pole. This effect
+        # is dampened by wetness
+        for city in self.cities.values():
+            latitudeFactor = 0.7 * (1 - cos(2 * pi * city.center[1] /
+                                            self.height)) / 2
+            altitudeFactor = 1.3 * (1 - city.altitude)
+            waterFactor = 1 - city.wetness / 2
+            city.temp = (latitudeFactor + altitudeFactor - 1) * waterFactor
+
+    def setFertility(self):
+        # Cities are more fertile if they're wetter, and a temperate climate.
+        # Hotness is less bad than coldness
+        for city in self.cities.values():
+            tempFactor = sin(pi / 2 * city.temp ** 2) / 2 + \
+                sin(3 * pi / 2 * city.temp ** 2) / 6
+            waterFactor = city.wetness * 1.5
+            city.fertility = (tempFactor + waterFactor) / 2
+
+    def initializeTerrain(self):
+        # Call all the terrain initializing functions
+        self.spawnLand()
+        self.generateRivers()
+        self.setWetness()
+        self.setTemperature()
+        self.setFertility()
 
     def drawCities(self, canvas, data):
         # Draw cities, starting from the center, and spreading out until

@@ -247,6 +247,9 @@ class Mapmaker:
                 else:
                     for i in range(len(output)):
                         j = (i + 1) % len(output)
+                        # Check for weird bug where there's duplicate points
+                        if dist(output[i], vertex) < 10e-4:
+                            break
                         if isClockwise([output[i], vertex, output[j]]):
                             output.insert(j, vertex)
                             break

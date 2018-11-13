@@ -6,16 +6,8 @@
 
 from Graphics import *
 from Geometry import dist
-from math import cos
 
 DEFAULT_NAME = "Uninhabited"
-
-
-def getTemperature(city, wmap):
-    latitudeFactor = 1 - cos(2 * pi / wmap.height * city.center[1])
-    altitudeFactor = 1 - city.altitude
-    waterFactor = 1
-    return (latitudeFactor + altitudeFactor) / 2 * waterFactor
 
 
 class City:
@@ -49,12 +41,22 @@ class City:
                     return True
         return False
 
+    def isSea(self):
+        return self.altitude <= 0
+
     def draw(self, canvas, data):
         sVertices = [scale(vertex, data) for vertex in self.vertices]
-        if self.altitude > 0:
-            color = mixColors(DARK_GRASS, GRASS_COLOR, self.altitude)
-        else:
-            color = mixColors(DARK_OCEAN, OCEAN_COLOR, -self.altitude)
+        if data.drawMode == 0:
+            if self.altitude > 0:
+                color = mixColors(DARK_GRASS, GRASS_COLOR, self.altitude)
+            else:
+                color = mixColors(DARK_OCEAN, OCEAN_COLOR, -self.altitude)
+        elif data.drawMode == 1:
+            color = mixColors(DRY_COLOR, GRASS_COLOR, self.wetness)
+        elif data.drawMode == 2:
+            color = mixColors(COLD_COLOR, HOT_COLOR, (self.temp + 1) / 2)
+        elif data.drawMode == 3:
+            color = mixColors(DRY_COLOR, GRASS_COLOR, self.fertility)
         canvas.create_polygon(sVertices,
                               fill=color,
                               outline='')

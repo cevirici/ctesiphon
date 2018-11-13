@@ -4,7 +4,7 @@ from Terrain import *
 from random import *
 from PIL import ImageTk
 
-MAP_SIZE = 800
+MAP_SIZE = 4000
 
 
 def timerFired(data):
@@ -29,17 +29,21 @@ def redrawHud(canvas, data):
     canvas.create_image(data.width, data.height, anchor=SE, image=data.hudBot)
 
     provNamePos = [950, 53]
+    provWetnessPos = [950, 150]
     if data.activeCity:
         canvas.create_text(provNamePos, anchor=NW, justify='left',
                            text=data.activeCity.name,
+                           fill='white', font=HUD_FONT)
+        canvas.create_text(provWetnessPos, anchor=NW, justify='left',
+                           text=data.activeCity.wetness,
                            fill='white', font=HUD_FONT)
 
 
 def keyPressed(event, data):
     if event.keysym == 'k':
-        temp = data.map
-        data.map = data.oldMap
-        data.oldMap = temp
+        data.drawMode += 1
+        if data.drawMode == 4:
+            data.drawMode = 0
 
 
 def mousePressed(event, data):
@@ -64,11 +68,13 @@ def mouseWheel(event, data):
 
 
 def redrawAll(canvas, data):
+    # Calls each draw function
     data.map.draw(canvas, data)
     redrawHud(canvas, data)
 
 
 def redrawAllWrapper(canvas, data):
+    # Wrapper for redraw events
     canvas.delete(ALL)
     canvas.create_rectangle(0, 0, data.width, data.height,
                             fill='#5E3C11', width=0)
@@ -95,8 +101,7 @@ def makeMap(canvas, data):
 
     data.oldMap = data.map
     data.map = Map(data.map, data)
-    data.map.spawnLand()
-    data.map.generateRivers()
+    data.map.initializeTerrain()
     redrawAllWrapper(canvas, data)
 
 
@@ -107,6 +112,7 @@ def init(canvas, data):
     data.mapSize = data.viewSize
     data.timerDelay = 10
     data.loadingMessage = 'Generating Initial Map'
+    data.drawMode = 0
 
     makeMap(canvas, data)
 
