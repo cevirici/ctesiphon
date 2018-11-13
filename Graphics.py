@@ -20,7 +20,8 @@ LOADING_FONT = ('Banschrift Light', 48)
 
 def scale(point, data):
     # Returns the view coordinates of a given points
-    return [(point[i] - data.viewPos[i]) * data.zoom for i in range(2)]
+    return [(point[i] - data.viewPos[i]) * data.zoom + data.mapPos[i]
+            for i in range(2)]
 
 
 def rgbToColor(rgb):
@@ -73,14 +74,14 @@ def zoom(data, factor, x, y):
 
 def scroll(data, margin, x, y):
     ZOOM_FACTOR = 4 * data.zoom
-    if x < margin:
+    if 0 < x < margin:
         data.viewPos[0] -= (margin - x) / ZOOM_FACTOR
-    elif x > data.viewSize[0] - margin:
+    elif data.viewSize[0] > x > data.viewSize[0] - margin:
         data.viewPos[0] += (x - data.viewSize[0] + margin) / ZOOM_FACTOR
 
-    if y < margin:
+    if 0 < y < margin:
         data.viewPos[1] -= (margin - y) / ZOOM_FACTOR
-    elif y > data.viewSize[1] - margin:
+    elif data.viewSize[1] > y > data.viewSize[1] - margin:
         data.viewPos[1] += (y - data.viewSize[1] + margin) / ZOOM_FACTOR
 
     limitView(data)

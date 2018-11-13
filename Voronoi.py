@@ -335,6 +335,7 @@ class Mapmaker:
             Mapmaker.__init__(self, newPoints, self.width, self.height)
 
     def draw(self, canvas, data):
-        canvas.create_text(data.width / 2, data.height / 2,
+        canvas.create_text(data.viewSize[0] / 2 + data.mapPos[0],
+                           data.viewSize[1] / 2 + data.mapPos[1],
                            text=data.loadingMessage,
                            font=LOADING_FONT)
