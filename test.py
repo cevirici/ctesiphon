@@ -4,7 +4,7 @@ from Terrain import *
 from random import *
 from PIL import ImageTk
 
-MAP_SIZE = 4000
+MAP_SIZE = 2000
 
 
 def timerFired(data):
@@ -13,6 +13,12 @@ def timerFired(data):
     x = data.root.winfo_pointerx() - data.root.winfo_rootx() - data.mapPos[0]
     y = data.root.winfo_pointery() - data.root.winfo_rooty() - data.mapPos[1]
     scroll(data, SCROLL_MARGINS, x, y)
+    if not data.paused:
+        data.ticks += 1
+        if data.ticks == 25:
+            data.ticks = 0
+            if isinstance(data.map, Map):
+                data.map.update()
 
 
 def redrawHud(canvas, data):
@@ -30,6 +36,10 @@ def redrawHud(canvas, data):
 
     provNamePos = [950, 53]
     provWetnessPos = [950, 150]
+    popPos = [950, 350]
+    popNumsPos = [1260, 350]
+
+    canvas.create_text(1250, 10, text=data.ticks)
     if data.activeCity:
         canvas.create_text(provNamePos, anchor=NW, justify='left',
                            text=data.activeCity.name,
@@ -38,12 +48,48 @@ def redrawHud(canvas, data):
                            text=data.activeCity.wetness,
                            fill='white', font=HUD_FONT)
 
+        popText = ""
+        popNumsText = ""
+        cultures = sorted(data.activeCity.cultures.keys(),
+                          key=lambda c: data.activeCity.cultures[c],
+                          reverse=True)
+        for culture in cultures:
+            pop = data.activeCity.cultures[culture]
+            popText += "{}:\n".format(culture.name)
+            popNumsText += "{}\n".format(pop)
+
+        canvas.create_text(popPos,
+                           text=popText,
+                           anchor=NW, justify='left',
+                           fill='white', font=HUD_FONT)
+        canvas.create_text(popNumsPos,
+                           text=popNumsText,
+                           anchor=NE, justify='right',
+                           fill='white', font=HUD_FONT)
+
+        if data.activeCity.maxCulture:
+            mc = data.activeCity.maxCulture
+            baseString = 'A:{}\nB:{}\nM:{}\nE:{}\nT:{}'
+            dataString = baseString.format(mc.agriculturalist,
+                                           mc.birthRate,
+                                           mc.migratory,
+                                           mc.explorative,
+                                           mc.tolerance)
+            canvas.create_text([950, 600],
+                               text=dataString,
+                               anchor=NW, justify='left',
+                               fill='white', font=HUD_FONT)
+
 
 def keyPressed(event, data):
     if event.keysym == 'k':
         data.drawMode += 1
-        if data.drawMode == 5:
+        if data.drawMode == 6:
             data.drawMode = 0
+    elif event.keysym == 'l':
+        data.map.update()
+    elif event.keysym == 'p':
+        data.paused = not data.paused
 
 
 def mousePressed(event, data):
@@ -102,7 +148,9 @@ def makeMap(canvas, data):
     data.oldMap = data.map
     data.map = Map(data.map, data)
     data.map.initializeTerrain()
+    data.map.spawnCultures()
     redrawAllWrapper(canvas, data)
+    data.ticks = -1
 
 
 def init(canvas, data):
@@ -113,6 +161,8 @@ def init(canvas, data):
     data.timerDelay = 10
     data.loadingMessage = 'Generating Initial Map'
     data.drawMode = 0
+    data.ticks = 0
+    data.paused = False
 
     makeMap(canvas, data)
 

@@ -5,6 +5,7 @@
 # # --- --- --- ---
 
 from City import *
+from Culture import *
 from Graphics import *
 from Geometry import dist
 from random import *
@@ -116,7 +117,8 @@ class Map:
                 city.altitude = 0
                 filled.add(city)
                 expands = [(factor + 1, neigh) for neigh in city.neighbors
-                           if neigh not in filled and neigh.altitude > 0]
+                           if neigh not in filled and not neigh.isSea() and
+                           not neigh.onRiver]
 
                 frontier += expands
 
@@ -284,9 +286,10 @@ class Map:
         # Hotness is less bad than coldness
         for city in self.cities.values():
             tempFactor = (sin(pi / 2 * city.temp ** 2) +
-                          sin(3 * pi / 2 * city.temp ** 2) / 3) * 0.8
+                          sin(3 * pi / 2 * city.temp ** 2) / 2) * 0.8
             waterFactor = city.wetness * 1.2
             city.fertility = (tempFactor + waterFactor) / 2
+            city.capacity = city.fertility * (1 + city.infrastructure) * 250
 
     def setVegetation(self):
         # Vegetation is just a random factor + fertility, + forests
@@ -335,6 +338,29 @@ class Map:
         self.setTemperature()
         self.setFertility()
         self.setVegetation()
+
+    def spawnCultures(self):
+        # Spawn some cultures
+        for i in range(10):
+            sources = [city for city in self.cities.values()
+                       if city.altitude > 0]
+
+            origin = choice(sources)
+            newCulture = Culture(origin)
+            origin.immigrants.append((newCulture, 50))
+
+    def update(self):
+        # Call tick events
+        for city in self.cities.values():
+            city.tick()
+
+        # Enact transfers
+        for city in self.cities.values():
+            city.transfer()
+
+        # After redistribution is done, rescale
+        for city in self.cities.values():
+            city.rescale()
 
     def drawCities(self, canvas, data):
         # Draw cities, starting from the center, and spreading out until
