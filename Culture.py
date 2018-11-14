@@ -28,3 +28,4 @@ class Culture:
         self.tolerance = random()
 
     def diverge(self, origin):
+        pass
