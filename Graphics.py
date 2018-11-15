@@ -41,8 +41,7 @@ def rgbToColor(rgb):
 def mixColors(rgb_1, rgb_2, factor):
     # Returns the hex code of a linear mix between two RGB triples
     # A factor of 0 gives rgb_1, a factor of 1 gives rgb_2
-    return rgbToColor([int(rgb_2[i] * factor + rgb_1[i] * (1 - factor))
-                       for i in range(3)])
+    return [int(rgb_2[i] * factor + rgb_1[i] * (1 - factor)) for i in range(3)]
 
 
 def limitView(data):
@@ -75,7 +74,7 @@ def zoom(data, factor, x, y):
     # Handle zooming
     oldZoom = data.zoom
     data.zoom *= 1.1 ** factor
-    data.zoom = max(1, data.zoom)
+    data.zoom = max(data.map.cityCount ** 0.5 / 30, data.zoom)
     scale = (1 / data.zoom - 1 / oldZoom)
 
     # 'Centralize' the target if cursor is off-center

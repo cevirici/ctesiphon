@@ -360,7 +360,7 @@ class Map:
 
         # After redistribution is done, rescale
         for city in self.cities.values():
-            city.rescale()
+            city.postTick()
 
     def drawCities(self, canvas, data):
         # Draw cities, starting from the center, and spreading out until

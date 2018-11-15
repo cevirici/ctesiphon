@@ -5,7 +5,7 @@
 # # --- --- --- ---
 
 
-from random import random, gauss, choice
+from random import random, gauss, choice, randint
 
 VOWELS = [['I', 'IY', 'UY', 'EU', 'OU'],
           ['EH', 'ER', 'UH', 'U', 'O'],
@@ -33,6 +33,15 @@ PRIMITIVES = ['SUN', 'MOUNTAIN', 'NORTH', 'SOUTH', 'EAST', 'WEST', 'CITY',
               'BIG', 'SMALL', 'WAY', 'UP', 'ROYAL', 'KINGS', 'BIRD', 'FARM',
               'LONG', 'ISLAND', 'RICH', 'WATER', 'LAND', 'OF', 'ON', 'OVER',
               'DESERT', 'ICE', 'FOREST', 'PEOPLE']
+
+
+def mergeWords(word_a, word_b):
+    # Merge two words
+    join = word_a + word_b
+    if len(join) > 3:
+        if random() > 1 / len(join):
+            del join[randint(1, len(join) - 2)]
+    return join
 
 
 def printWord(word):
@@ -74,7 +83,7 @@ class Language:
 
     def __getitem__(self, item):
         if item in PRIMITIVES:
-            return printWord(self.prims[item]).capitalize()
+            return self.prims[item]
 
     def generateSyllable(self, form):
         syllable = []

@@ -4,7 +4,7 @@ from Terrain import *
 from random import *
 from PIL import ImageTk
 
-MAP_SIZE = 2000
+MAP_SIZE = 4000
 
 
 def timerFired(data):
@@ -15,7 +15,7 @@ def timerFired(data):
     scroll(data, SCROLL_MARGINS, x, y)
     if not data.paused:
         data.ticks += 1
-        if data.ticks == 25:
+        if data.ticks == 5:
             data.ticks = 0
             if isinstance(data.map, Map):
                 data.map.update()
@@ -42,10 +42,10 @@ def redrawHud(canvas, data):
     canvas.create_text(1250, 10, text=data.ticks)
     if data.activeCity:
         canvas.create_text(provNamePos, anchor=NW, justify='left',
-                           text=data.activeCity.name,
+                           text=printWord(data.activeCity.name).capitalize(),
                            fill='white', font=HUD_FONT)
         canvas.create_text(provWetnessPos, anchor=NW, justify='left',
-                           text=data.activeCity.wetness,
+                           text=data.activeCity.divergencePressure,
                            fill='white', font=HUD_FONT)
 
         popText = ""
@@ -55,7 +55,7 @@ def redrawHud(canvas, data):
                           reverse=True)
         for culture in cultures:
             pop = data.activeCity.cultures[culture]
-            popText += "{}:\n".format(culture.name)
+            popText += "{}:\n".format(printWord(culture.name).capitalize())
             popNumsText += "{}\n".format(pop)
 
         canvas.create_text(popPos,
@@ -70,11 +70,7 @@ def redrawHud(canvas, data):
         if data.activeCity.maxCulture:
             mc = data.activeCity.maxCulture
             baseString = 'A:{}\nB:{}\nM:{}\nE:{}\nT:{}'
-            dataString = baseString.format(mc.agriculturalist,
-                                           mc.birthRate,
-                                           mc.migratory,
-                                           mc.explorative,
-                                           mc.tolerance)
+            dataString = baseString.format(*mc.traits.values())
             canvas.create_text([950, 600],
                                text=dataString,
                                anchor=NW, justify='left',

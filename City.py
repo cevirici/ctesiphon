@@ -7,8 +7,10 @@
 from Graphics import *
 from Geometry import dist
 from math import ceil
+from random import random
 
 DEFAULT_NAME = "Uninhabited"
+DIVERGENCE_THRESHOLD = 15
 
 
 class City:
@@ -28,6 +30,7 @@ class City:
         self.cultures = {}
         self.maxCulture = None
         self.population = 0
+        self.divergencePressure = 0
 
         self.infrastructure = 0
 
@@ -60,20 +63,19 @@ class City:
         # birth rate)
         altitudeFactor = 1 - abs(self.altitude - culture.idealAltitude)
         tempFactor = 1 - abs(self.temp - culture.idealTemp)
-        farmFactor = 0.5 + (self.fertility - 0.5) * culture.agriculturalist
-        overallFactor = altitudeFactor * tempFactor * farmFactor
-        return overallFactor * (1 - culture.hardiness) + culture.hardiness
+        farmFactor = 0.5 + (self.fertility - 0.5) * culture['AGRI']
+        return altitudeFactor * tempFactor * farmFactor
 
     def attractiveness(self, culture):
         # Returns the attractiveness of some province to a culture
         altitudeFactor = 1 - abs(self.altitude - culture.idealAltitude)
         tempFactor = 1 - abs(self.temp - culture.idealTemp)
-        farmFactor = self.fertility * culture.agriculturalist
+        farmFactor = self.fertility * culture['AGRI']
         if culture in self.cultures:
             popFraction = self.cultures[culture] / self.capacity
         else:
             popFraction = 0
-        popFactor = popFraction * (1 - 2 * culture.explorative)
+        popFactor = popFraction * (1 - 2 * culture['EXPLORE'])
         return altitudeFactor + tempFactor + farmFactor + popFactor
 
     # --- Runtime Functions
@@ -89,9 +91,9 @@ class City:
                 if culture == self.maxCulture:
                     effCap = self.capacity
                 else:
-                    effCap = self.capacity * self.maxCulture.tolerance
+                    effCap = self.capacity * self.maxCulture['TOLERANCE']
 
-                excess = max(total - effCap * (1 - culture.migratory), 0)
+                excess = max(total - effCap * (1 - culture['MIGRATE']), 0)
                 emigrantNum = excess * self.cultures[culture] / total
                 remainder = emigrantNum
 
@@ -120,13 +122,12 @@ class City:
                 self.emigrants.append((culture, remainder))
                 candidates[0].immigrants.append((culture, remainder))
 
-    def divergencePressure(self):
-        # Calculates the 'divergence pressure' - if it's too high, try to split culture
-
     def tick(self):
         # Births
         for culture in self.cultures:
-            realRate = 1 + culture.birthRate * self.suitability(culture)
+            factor = self.suitability(culture) * (1 - culture['HARDINESS']) + \
+                culture['HARDINESS']
+            realRate = 1 + culture['BIRTHS'] * factor
             self.cultures[culture] *= realRate
 
         self.emigrate()
@@ -149,15 +150,27 @@ class City:
                     self.cultures[culture] = amount
                 total += amount
 
+    def recalculate(self):
+        # Recalculate some things
+        self.population = sum(self.cultures.values())
+        self.capacity = self.fertility * (1 + self.infrastructure) * 250
+        if self.maxCulture:
+            dpChange = (0.8 - self.suitability(self.maxCulture) ** 0.5) * \
+                self.cultures[self.maxCulture] / self.capacity
+            self.divergencePressure += max(0, dpChange)
+
     def rescale(self):
         # Rescale cultures to fit within capacity
         total = sum(self.cultures.values())
         newCultures = {}
+        oldMax = self.maxCulture
+
         if total > 0:
             factor = min(1, self.capacity / total)
             for culture in self.cultures:
                 newAmount = factor * self.cultures[culture]
-                newAmount = ceil(newAmount)
+                fraction = newAmount - int(newAmount)
+                newAmount = int(newAmount) + (1 if random() > fraction else 0)
                 if newAmount > 0:
                     newCultures[culture] = newAmount
             if newCultures:
@@ -167,22 +180,85 @@ class City:
                 self.maxCulture = None
 
         self.cultures = newCultures
-        self.population = sum(self.cultures.values())
-        self.capacity = self.fertility * (1 + self.infrastructure) * 250
+        if self.maxCulture != oldMax:
+            self.divergencePressure = 0
+
+    def diverge(self):
+        self.divergencePressure = 0
+        oldMax = self.maxCulture
+        # Try a subculture, if not, make a new one
+        if oldMax.subCultures:
+            candidates = sorted(oldMax.subCultures,
+                                key=lambda c: self.suitability(c))
+            if self.suitability(candidates[-1]) > self.suitability(oldMax):
+                newCulture = candidates[-1]
+            else:
+                newCulture = oldMax.diverge(self)
+        else:
+            newCulture = oldMax.diverge(self)
+
+        self.cultures[newCulture] = self.cultures[oldMax]
+        del self.cultures[oldMax]
+        self.maxCulture = newCulture
+
+        queue = [n for n in self.neighbors]
+        checked = set([self])
+        while len(queue) > 0:
+            city = queue.pop(0)
+            if city not in checked:
+                checked.add(city)
+                if city.maxCulture == oldMax:
+                    if city.suitability(oldMax) < city.suitability(newCulture):
+                        cc = city.cultures
+                        cc[newCulture] = cc[oldMax]
+                        del cc[oldMax]
+
+                        for n in city.neighbors:
+                            if n not in checked:
+                                queue.append(n)
+
+                    city.divergencePressure = 0
+
+    def reform(self):
+        # Adaptible cultures can 'reform' instead of diverging
+        self.divergencePressure = 0
+        queue = [n for n in self.neighbors]
+        checked = set([self])
+        while len(queue) > 0:
+            city = queue.pop(0)
+            if city not in checked:
+                checked.add(city)
+                if city.maxCulture == self.maxCulture:
+                    city.divergencePressure = 0
+                    for n in city.neighbors:
+                        if n not in checked:
+                            queue.append(n)
+        self.maxCulture.reform(self)
+
+    def postTick(self):
+        self.rescale()
+        self.recalculate()
+        if self.divergencePressure > DIVERGENCE_THRESHOLD:
+            if random() > 0.5 + self.maxCulture['HARDINESS']:
+                self.diverge()
+            else:
+                self.reform()
 
     # --- Drawing Functions ---
 
     def draw(self, canvas, data):
         sVertices = [scale(vertex, data) for vertex in self.vertices]
-        if data.drawMode == 0 or (data.drawMode == 5 and not self.cultures):
-            if self.altitude > 0:
-                if self.vegetation > 0.6:
-                    color = mixColors(DARK_GRASS, FOREST_COLOR,
+        if self.altitude > 0:
+            if self.vegetation > 0.6:
+                baseColor = mixColors(DARK_GRASS, FOREST_COLOR,
                                       self.vegetation)
-                else:
-                    color = mixColors(DARK_GRASS, GRASS_COLOR, self.altitude)
             else:
-                color = mixColors(DARK_OCEAN, OCEAN_COLOR, -self.altitude)
+                baseColor = mixColors(DARK_GRASS, GRASS_COLOR, self.altitude)
+        else:
+            baseColor = mixColors(DARK_OCEAN, OCEAN_COLOR, -self.altitude)
+
+        if data.drawMode == 0:
+            color = baseColor
         elif data.drawMode == 1:
             color = mixColors(DRY_COLOR, GRASS_COLOR, self.wetness)
         elif data.drawMode == 2:
@@ -192,10 +268,11 @@ class City:
         elif data.drawMode == 4:
             color = mixColors(GRASS_COLOR, FOREST_COLOR, self.vegetation)
         else:
-            if self.cultures:
-                color = rgbToColor(self.maxCulture.color)
+            if self.maxCulture:
+                saturation = 0.9 + self.population / self.capacity / 12
+                color = mixColors(baseColor, self.maxCulture.color, saturation)
             else:
-                color = '#905F20'
+                color = baseColor
         canvas.create_polygon(sVertices,
-                              fill=color,
+                              fill=rgbToColor(color),
                               outline='')
