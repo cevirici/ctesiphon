@@ -36,11 +36,12 @@ class Trait:
 class Culture:
     cultures = set()
     AGRICULTURALIST = Trait('Agriculturalist', 'AGRI', 0, 1, 0.1)
-    BIRTHRATE = Trait('Birth Rate', 'BIRTHS', 0.03, 0.15, 0.02)
+    BIRTHRATE = Trait('Birth Rate', 'BIRTHS', 0.04, 0.15, 0.02)
     MIGRATORY = Trait('Nomadic', 'MIGRATE', 0.1, 0.4, 0.05)
-    EXPLORATIVE = Trait('Explorative', 'EXPLORE', 0.2, 0.8, 0.07)
+    EXPLORATIVE = Trait('Explorative', 'EXPLORE', 0.3, 0.8, 0.07)
     HARDINESS = Trait('Adaptible', 'HARDINESS', 0, 0.5, 0.05)
-    TOLERANT = Trait('Tolerant', 'TOLERANCE', 0, 1, 0.1)
+    TOLERANT = Trait('Tolerant', 'TOLERANCE', 0.6, 1, 0.05)
+    INNOVATION = Trait('Innovative', 'INNOV', 0, 1, 0.1)
 
     def __init__(self, origin, lang=None, subLanguages=None):
         self.origin = origin
@@ -51,6 +52,7 @@ class Culture:
 
         self.idealTemp = origin.temp
         self.idealAltitude = origin.altitude
+        self.coastal = origin.coastal
 
         self.traits = {}
 
@@ -60,10 +62,14 @@ class Culture:
         self.traits[Culture.EXPLORATIVE] = Culture.EXPLORATIVE.randomize()
         self.traits[Culture.HARDINESS] = Culture.HARDINESS.randomize()
         self.traits[Culture.TOLERANT] = Culture.TOLERANT.randomize()
+        self.traits[Culture.INNOVATION] = Culture.INNOVATION.randomize()
 
-        self.subCultures = []
+        self.subCultures = {}
 
         Culture.cultures.add(self)
+
+    def __repr__(self):
+        return printWord(self.name).capitalize()
 
     def __getitem__(self, item):
         for trait in self.traits:
@@ -74,6 +80,17 @@ class Culture:
         for trait in self.traits:
             if trait.formal == item:
                 self.traits[trait] = value
+
+    def isAncestor(self, other):
+        # Checks if 'other' is a descendant of this culture
+        for parent in self.subCultures:
+            if other in self.subCultures[parent]:
+                return True
+            else:
+                for culture in self.subCultures[parent]:
+                    if culture.isAncestor(other):
+                        return True
+        return False
 
     def diverge(self, origin):
         # Generate a child culture centered around another province
@@ -87,7 +104,7 @@ class Culture:
             child.traits[trait] = trait.jiggle(self.traits[trait])
 
         # Come up with possible names
-        prefixes = ['OF']
+        prefixes = ['OF', 'ORIGIN']
         if origin.temp < self.idealTemp:
             prefixes.append('ICE')
         if origin.temp > self.idealTemp:
@@ -106,17 +123,50 @@ class Culture:
             prefixes.append('NORTH')
 
         allNames = [c.name for c in Culture.cultures]
-        prefix = choice(prefixes)
-        child.name = mergeWords(self.language[prefix], self.name)
-        while prefixes and child.name in allNames:
-            prefixes.remove(prefix)
+
+        def choosePrefix():
             prefix = choice(prefixes)
-            child.name = mergeWords(self.language[prefix], self.name)
+            prefixes.remove(prefix)
+            if prefix != 'ORIGIN':
+                prefix = self.language[prefix]
+            else:
+                prefix = origin.name
+            return mergeWords(prefix, self.name)
+
+        child.name = choosePrefix()
+        while prefixes and child.name in allNames:
+            child.name = choosePrefix()
 
         if not prefixes:
             child.name = self.language.generateWord()
 
-        self.subCultures.append(child)
+        if self in self.subCultures:
+            self.subCultures[self].append(child)
+        else:
+            self.subCultures[self] = [child]
+        return child
+
+    def merge(self, other, origin):
+        # Generate a child culture with another culture
+        child = Culture(origin, self.language, self.subLanguages)
+        child.color = [(self.color[i] + other.color[i]) / 3 for i in range(3)]
+        for i in range(3):
+            child.color[i] = min(255, max(0, child.color[i]))
+
+        for trait in self.traits:
+            child.traits[trait] = (self.traits[trait] +
+                                   other.traits[trait]) / 2
+            child['TOLERANCE'] += random() * 0.1
+            child.traits[trait] = trait.jiggle(child.traits[trait])
+
+        child.name = mergeWords(self.name, other.name)
+
+        if other in self.subCultures:
+            self.subCultures[other].append(child)
+            other.subCultures[self].append(child)
+        else:
+            self.subCultures[other] = [child]
+            other.subCultures[self] = [child]
         return child
 
     def reform(self, origin):

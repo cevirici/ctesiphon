@@ -260,6 +260,7 @@ class Map:
         while len(queue) > 0:
             city, distance = queue.pop(0)
             if city not in checked:
+                city.coastal = city.isCoastal()
                 checked.add(city)
 
                 distFactor = 1 / (distance * avgR / 50 + 1)
@@ -267,7 +268,7 @@ class Map:
                 latitude = city.center[1] / self.height
                 rainFactor = (0.6 - sin(4 * pi * (latitude - 0.15)) *
                               sin(4 * pi * (latitude - 0.15) / 3)) / 1.8
-                city.wetness = (distFactor + rainFactor) / 2
+                city.wetness = (distFactor * 3 + rainFactor) / 4
                 for neigh in city.neighbors:
                     queue.append((neigh, distance + 1))
 
@@ -288,7 +289,7 @@ class Map:
             tempFactor = (sin(pi / 2 * city.temp ** 2) +
                           sin(3 * pi / 2 * city.temp ** 2) / 2) * 0.8
             waterFactor = city.wetness * 1.2
-            city.fertility = (tempFactor + waterFactor) / 2
+            city.fertility = (tempFactor + 3 * waterFactor) / 4
             city.capacity = city.fertility * (1 + city.infrastructure) * 250
 
     def setVegetation(self):
@@ -347,7 +348,7 @@ class Map:
 
             origin = choice(sources)
             newCulture = Culture(origin)
-            origin.immigrants.append((newCulture, 50))
+            origin.emigrate(newCulture, -50)
 
     def update(self):
         # Call tick events
@@ -356,13 +357,15 @@ class Map:
 
         # Enact transfers
         for city in self.cities.values():
-            city.transfer()
+            city.midTick()
 
         # After redistribution is done, rescale
         for city in self.cities.values():
             city.postTick()
 
-    def drawCities(self, canvas, data):
+    # --- Drawing ---
+
+    def drawCitiesBG(self, canvas, data):
         # Draw cities, starting from the center, and spreading out until
         # the cities are no longer visible
         toDraw = [self.centerCity]
@@ -376,8 +379,77 @@ class Map:
                     if neigh not in drawn and neigh.visible(data):
                         toDraw.append(neigh)
 
+    def drawCities(self, canvas, data):
+        # Draw cities, starting from the center, and spreading out until
+        # the cities are no longer visible
+        toDraw = [self.centerCity]
+        drawn = set()
+        while len(toDraw) > 0:
+            city = toDraw.pop(0)
+            if city not in drawn:
+                city.drawDecorations(canvas, data)
+                drawn.add(city)
+                for neigh in city.neighbors:
+                    if neigh not in drawn and neigh.visible(data):
+                        toDraw.append(neigh)
+
+    def drawCulture(self, origin, searched, canvas, data):
+        culture = origin.maxCulture
+        if culture is not None:
+            A, B = culture.origin, culture.origin
+            lastA, lastB = None, None
+            while A != lastA or B != lastB:
+                lastA, lastB = A, B
+                aCand = [n for n in A.neighbors
+                         if A.maxCulture == n.maxCulture]
+                if aCand:
+                    A = sorted(aCand,
+                               key=lambda x: dist(x.center, B.center))[-1]
+                    if dist(A.center, B.center) < dist(lastA.center, B.center):
+                        A = lastA
+                        break
+                else:
+                    break
+                bCand = [n for n in B.neighbors
+                         if B.maxCulture == n.maxCulture]
+                if bCand:
+                    B = sorted(bCand,
+                               key=lambda x: dist(x.center, A.center))[-1]
+                    if dist(A.center, B.center) < dist(lastB.center, A.center):
+                        B = lastB
+                        break
+                else:
+                    break
+
+            scaleA = scale(A.center, data)
+            scaleB = scale(B.center, data)
+            midPt = [(scaleA[i] + scaleB[i]) / 2 for i in range(2)]
+            name = printWord(culture.name).capitalize()
+            fSize = int(dist(scaleA, scaleB) / len(name)) + 16
+            font = ('Times New Roman', fSize)
+            canvas.create_text(midPt,
+                               font=font,
+                               text=name)
+
+    def drawCultures(self, canvas, data):
+        # Draw the culture name over the geographical centers
+        queue = [self.centerCity]
+        painted = set()
+        searched = set()
+        while len(queue) > 0:
+            target = queue.pop()
+            if target not in searched:
+                searched.add(target)
+                if target not in painted:
+                    self.drawCulture(target, searched, canvas, data)
+                for n in target.neighbors:
+                    if n not in searched:
+                        queue.append(n)
+                    if n.maxCulture == target.maxCulture:
+                        painted.add(n)
+
     def draw(self, canvas, data):
-        self.drawCities(canvas, data)
+        self.drawCitiesBG(canvas, data)
 
         for river in self.rivers:
             sRiver = []
@@ -397,3 +469,8 @@ class Map:
                                   fill='',
                                   outline=rgbToColor(HIGHLIGHT),
                                   width=1.5 * data.zoom)
+
+        self.drawCities(canvas, data)
+
+        # if data.drawMode == 5:
+        #     self.drawCultures(canvas, data)

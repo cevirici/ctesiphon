@@ -4,7 +4,7 @@ from Terrain import *
 from random import *
 from PIL import ImageTk
 
-MAP_SIZE = 4000
+MAP_SIZE = 2000
 
 
 def timerFired(data):
@@ -15,7 +15,7 @@ def timerFired(data):
     scroll(data, SCROLL_MARGINS, x, y)
     if not data.paused:
         data.ticks += 1
-        if data.ticks == 5:
+        if data.ticks == data.tickRate:
             data.ticks = 0
             if isinstance(data.map, Map):
                 data.map.update()
@@ -36,6 +36,8 @@ def redrawHud(canvas, data):
 
     provNamePos = [950, 53]
     provWetnessPos = [950, 150]
+    moreDataPos = [950, 200]
+    morerDataPos = [950, 250]
     popPos = [950, 350]
     popNumsPos = [1260, 350]
 
@@ -45,7 +47,13 @@ def redrawHud(canvas, data):
                            text=printWord(data.activeCity.name).capitalize(),
                            fill='white', font=HUD_FONT)
         canvas.create_text(provWetnessPos, anchor=NW, justify='left',
-                           text=data.activeCity.divergencePressure,
+                           text=data.activeCity.infrastructure * 100,
+                           fill='white', font=HUD_FONT)
+        canvas.create_text(moreDataPos, anchor=NW, justify='left',
+                           text=data.activeCity.progress,
+                           fill='white', font=HUD_FONT)
+        canvas.create_text(morerDataPos, anchor=NW, justify='left',
+                           text=str(data.activeCity.population) + '/' + str(int(data.activeCity.capacity)),
                            fill='white', font=HUD_FONT)
 
         popText = ""
@@ -54,7 +62,7 @@ def redrawHud(canvas, data):
                           key=lambda c: data.activeCity.cultures[c],
                           reverse=True)
         for culture in cultures:
-            pop = data.activeCity.cultures[culture]
+            pop = int(data.activeCity.cultures[culture])
             popText += "{}:\n".format(printWord(culture.name).capitalize())
             popNumsText += "{}\n".format(pop)
 
@@ -86,6 +94,12 @@ def keyPressed(event, data):
         data.map.update()
     elif event.keysym == 'p':
         data.paused = not data.paused
+    elif event.keysym == 'n':
+        data.tickRate -= 2
+        data.ticks = 0
+    elif event.keysym == 'm':
+        data.tickRate += 2
+        data.ticks = 0
 
 
 def mousePressed(event, data):
@@ -156,8 +170,9 @@ def init(canvas, data):
     data.mapSize = data.viewSize
     data.timerDelay = 10
     data.loadingMessage = 'Generating Initial Map'
-    data.drawMode = 0
+    data.drawMode = 5
     data.ticks = 0
+    data.tickRate = 10
     data.paused = False
 
     makeMap(canvas, data)

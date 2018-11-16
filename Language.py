@@ -38,6 +38,9 @@ PRIMITIVES = ['SUN', 'MOUNTAIN', 'NORTH', 'SOUTH', 'EAST', 'WEST', 'CITY',
 def mergeWords(word_a, word_b):
     # Merge two words
     join = word_a + word_b
+    # Cap words at 5 syllables
+    while len(join) > 5:
+        del join[randint(1, len(join) - 2)]
     if len(join) > 3:
         if random() > 1 / len(join):
             del join[randint(1, len(join) - 2)]
@@ -135,11 +138,10 @@ class Language:
                     else:
                         newSyllable.append(choice(self.consonants))
             newWord.append(newSyllable)
-        return printWord(newWord)
+        return newWord
 
     def translate(self, word):
-        newWord = ' '.join([printWord(self.prims[prim]).capitalize()
-                            for prim in word])
+        newWord = [self.prims[prim] for prim in word]
         return newWord
 
     def mutate(self):
