@@ -4,7 +4,7 @@ from Terrain import *
 from random import *
 from PIL import ImageTk
 
-MAP_SIZE = 2000
+MAP_SIZE = 4000
 
 
 def timerFired(data):

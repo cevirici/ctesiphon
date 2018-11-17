@@ -19,19 +19,21 @@ class City:
         self.vertices = vertices
         self.neighbors = set()
         self.radius = max([dist(self.center, v) for v in self.vertices])
-        self.immigrants = []
-        self.immigrantPop = 0
 
         self.name = DEFAULT_NAME
 
         self.altitude = 0
         self.onRiver = False
+        self.downstream = None
+        self.biome = 0
 
         self.cultures = {}
         self.maxCulture = None
         self.population = 0
         self.divergencePressure = 0
         self.mergePressures = {}
+        self.immigrants = []
+        self.immigrantPop = 0
 
         self.infrastructure = 0
         self.progress = 0
@@ -81,10 +83,9 @@ class City:
         tempFactor = 1 - abs(self.temp - culture.idealTemp)
         farmFactor = self.fertility * culture['AGRI']
         forestFactor = -max(0.5, abs(self.vegetation))
-        overpopFactor = (0.9 - max(0.9, self.population / self.capacity)) * 10
         coastFactor = self.wetness if self.coastal else (1 - self.wetness)
         return altitudeFactor + tempFactor + farmFactor + \
-            forestFactor + overpopFactor + coastFactor
+            forestFactor + coastFactor
 
     # ----- Runtime Functions -----
 
@@ -94,6 +95,13 @@ class City:
                 culture['HARDINESS']
             realRate = 1 + culture['BIRTHS'] * factor
             self.cultures[culture] *= realRate
+
+        self.population = sum([self.cultures[c] for c in self.cultures])
+        # No births when overpopulated
+        if self.population > self.capacity:
+            overPop = self.capacity / self.population
+            for culture in self.cultures:
+                self.cultures[culture] *= overPop
 
     # --- Infrastructure ---
 
@@ -216,8 +224,7 @@ class City:
                 if destinations:
                     destinations.sort(key=lambda n: n.value(culture),
                                       reverse=True)
-                    self.distribute(migExcess, culture, destinations,
-                                    overflow=False)
+                    self.distribute(migExcess, culture, destinations)
 
         self.population = sum(self.cultures.values())
 
@@ -253,6 +260,7 @@ class City:
         total = sum(self.cultures.values())
         newCultures = {}
         oldMax = self.maxCulture
+        self.maxCulture = None
 
         if total > 0:
             factor = min(1, self.capacity / total)
@@ -311,6 +319,8 @@ class City:
 
     def tick(self):
         # Births
+        if self.maxCulture:
+            assert(self.maxCulture in self.cultures)
         self.births()
         self.overflowMigration()
         self.migration()
@@ -369,10 +379,11 @@ class City:
                               outline='')
 
     def drawDecorations(self, canvas, data):
-        circleR = self.population / 20
-        circlepts = [[self.center[0] - circleR,
-                      self.center[1] - circleR],
-                     [self.center[0] + circleR,
-                      self.center[1] + circleR]]
-        circlepts = [scale(pt, data) for pt in circlepts]
-        canvas.create_oval(circlepts)
+        circleR = (self.population / 5) ** (1 / 4)
+        if circleR > 1: 
+            circlepts = [[self.center[0] - circleR,
+                          self.center[1] - circleR],
+                         [self.center[0] + circleR,
+                          self.center[1] + circleR]]
+            circlepts = [scale(pt, data) for pt in circlepts]
+            canvas.create_oval(circlepts)

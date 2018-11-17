@@ -210,11 +210,11 @@ class Map:
             if seaNeighbors:
                 if len(river) > 1:
                     heading = getHeading(river[-2], head)
-                    head = self.getStraightestCity(head, heading, seaNeighbors)
+                    nextCity = self.getStraightestCity(head, heading,
+                                                       seaNeighbors)
                 else:
                     seaNeighbors.sort(key=lambda city: getRelief(head, city))
-                    head = seaNeighbors[0]
-                river.append(head)
+                    nextCity = seaNeighbors[0]
             else:
                 # Remove everyone who's too steep, or already in the river
                 choices = [city for city in head.neighbors if
@@ -224,15 +224,25 @@ class Map:
                     # Try the straightest
                     if len(river) > 1:
                         heading = getHeading(river[-2], head)
-                        head = self.getStraightestCity(head, heading, choices)
+                        nextCity = self.getStraightestCity(head, heading,
+                                                           choices)
                     else:
                         choices.sort(key=lambda city: getRelief(head, city))
-                        head = choices[0]
-                    river.append(head)
+                        nextCity = choices[0]
                 else:
                     # Make it a 'lake'
-                    self.generateLake(head, randint(1, 5))
+                    self.generateLake(head, randint(2, 5))
                     break
+            river.append(nextCity)
+            head.downstream = nextCity
+            head = nextCity
+
+        # Follow connected rivers
+        if head.onRiver:
+            while head.downstream:
+                river.append(head.downstream)
+                head = head.downstream
+
         if len(river) > 1:
             return river
 
