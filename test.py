@@ -39,11 +39,10 @@ def redrawHud(canvas, data):
                            text=data.activeCity.infrastructure * 100,
                            fill='white', font=HUD_FONT,
                            tag='HUD')
-        if data.activeCity.polity:
-            canvas.create_text(moreDataPos, anchor=NW, justify='left',
-                               text=data.activeCity.polity.influence(data.activeCity),
-                               fill='white', font=HUD_FONT,
-                               tag='HUD')
+        canvas.create_text(moreDataPos, anchor=NW, justify='left',
+                           text=data.activeCity.biome,
+                           fill='white', font=HUD_FONT,
+                           tag='HUD')
         canvas.create_text(morerDataPos, anchor=NW, justify='left',
                            text=int(data.activeCity.population),
                            fill='white', font=HUD_FONT,

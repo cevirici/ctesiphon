@@ -12,6 +12,7 @@ class Map:
         # Imports the geometry from a Mapmaker object
         self.cities = {}
         self.cityCount = len(source.pointSet)
+        self.borderCities = set()
 
         self.centerCity = None
         closestDist = float('inf')
@@ -26,9 +27,13 @@ class Map:
 
         # Populate adjacency dictionary
         for edge in source.edges:
-            if edge[0] != edge[1] and len(source.edges[edge]) > 0:
-                self.cities[edge[0]].neighbors.add(self.cities[edge[1]])
-                self.cities[edge[1]].neighbors.add(self.cities[edge[0]])
+            if len(source.edges[edge]) > 0:
+                if edge[0] != edge[1]:
+                    self.cities[edge[0]].neighbors.add(self.cities[edge[1]])
+                    self.cities[edge[1]].neighbors.add(self.cities[edge[0]])
+                else:
+                    self.borderCities.add(self.cities[edge[0]])
+                    self.borderCities.add(self.cities[edge[1]])
 
         self.rivers = []
 
@@ -72,7 +77,7 @@ class Map:
         # Spawn some cultures
         for i in range(10):
             sources = [city for city in self.cities.values()
-                       if city.altitude > 0]
+                       if not city.isSea() and city.fertility > 0.5]
 
             origin = choice(sources)
             newCulture = Culture(origin)

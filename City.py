@@ -4,6 +4,7 @@
 # #
 # # --- --- --- ---
 
+from Biome import *
 from CityCulture import *
 from Graphics import *
 from Geometry import dist
@@ -25,7 +26,7 @@ class City:
         self.altitude = 0
         self.onRiver = False
         self.downstream = None
-        self.biome = 0
+        self.biome = 'Lake'
 
         self.cultures = {}
         self.maxCulture = None
@@ -113,8 +114,8 @@ class City:
                 if self.progress > 1:
                     self.infrastructure += 0.1
                     self.progress -= 1
-        else:
-            self.infrastructure *= 0.9
+            else:
+                self.infrastructure *= 0.9
 
     def setCityLevel(self):
         thresholds = [380, 1000, 2500, 10000, 100000, 1000000]
@@ -122,6 +123,8 @@ class City:
         if self.population > thresholds[self.cityLevel + 1]:
             self.cityLevel += 1
             if self.cityLevel == 2:
+                if self.polity:
+                    self.polity.territories.discard(self)
                 self.polity = Polity(self, liege=self.polity)
 
     # --- Migration ---
@@ -321,14 +324,7 @@ class City:
 
     def draw(self, canvas, data):
         sVertices = [scale(vertex, data) for vertex in self.vertices]
-        if self.altitude > 0:
-            if self.vegetation > 0.6:
-                baseColor = mixColors(DARK_GRASS, FOREST_COLOR,
-                                      self.vegetation)
-            else:
-                baseColor = mixColors(DARK_GRASS, GRASS_COLOR, self.altitude)
-        else:
-            baseColor = mixColors(DARK_OCEAN, OCEAN_COLOR, -self.altitude)
+        baseColor = biomes[self.biome].getColor(self)
 
         if data.drawMode == 0:
             color = baseColor
@@ -349,7 +345,8 @@ class City:
         elif data.drawMode == 6:
             if self.polity:
                 saturation = 0.95
-                color = mixColors(baseColor, self.polity.color, saturation)
+                color = mixColors(baseColor, self.polity.superLiege().color,
+                                  saturation)
             else:
                 color = baseColor
         canvas.create_polygon(sVertices,

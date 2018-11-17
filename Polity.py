@@ -11,6 +11,7 @@ from math import log
 
 class Polity:
     polities = []
+
     def __init__(self, origin, liege=None):
         self.name = origin.name
         self.culture = origin.maxCulture
@@ -29,6 +30,13 @@ class Polity:
         self.progress = 0
 
         Polity.polities.append(self)
+
+    def superLiege(self):
+        # Finds the ultimate ruler of this polity
+        head = self
+        while head.liege is not None:
+            head = head.liege
+        return head
 
     def influence(self, city):
         # Calculates how much influence this polity has on a
@@ -66,7 +74,7 @@ class Polity:
                         if n not in checked and not n.isSea():
                             queue.append(n)
                 elif target.polity is None:
-                    if self.influence(target) > 0.3:
+                    if self.influence(target) > 0.55:
                         self.territories.add(target)
                         target.polity = self
                         return
@@ -75,7 +83,7 @@ class Polity:
         # Develop in each territory in the polity based on influence
         for city in self.territories:
             city.infrastructure += self.influence(city) * city.population / \
-                city.difficulty
+                city.difficulty / 10
 
     def research(self):
         self.progress += self.capital.population

@@ -31,6 +31,7 @@ def landDump(source, size, check, altitude, falloff, jaggedness):
         if city not in filled:
             city.altitude += altitude * (1 - falloff) ** factor
             city.altitude = min(1, max(-1, altitude))
+            city.biome = 'Grassland'
             filled.add(city)
             expands = [(factor + 1, neigh) for neigh in city.neighbors
                        if neigh not in filled and check(neigh)]
@@ -51,6 +52,7 @@ def generateLake(source, size):
         # Check if city got filled in twice
         if city not in filled:
             city.altitude = 0
+            city.biome = 'Lake'
             filled.add(city)
             expands = [(factor + 1, neigh) for neigh in city.neighbors
                        if neigh not in filled and not neigh.isSea() and
@@ -70,6 +72,8 @@ def averageAltitudes(map):
 
     for coord in altitudes:
         map.cities[coord].altitude = altitudes[coord]
+        if map.cities[coord].altitude > 0:
+            map.cities[coord].biome = 'Grassland'
 
 
 def spawnLand(map):
@@ -167,6 +171,8 @@ def generateRiver(map, source, sources):
                 break
         river.append(nextCity)
         head.downstream = nextCity
+        if nextCity.biome == 'Grassland':
+            nextCity.biome = 'Flood Plain'
         head = nextCity
 
     # Follow connected rivers
@@ -194,11 +200,27 @@ def generateRivers(map):
             break
 
 
+def findLakes(map):
+    # If water is on the edge of the map, it's the ocean, else it's
+    # a lake
+    frontier = [c for c in map.borderCities if c.isSea()]
+    checked = set()
+    while len(frontier) > 0:
+        city = frontier.pop(0)
+        if city not in checked:
+            city.biome = 'Ocean'
+            checked.add(city)
+            expands = [neigh for neigh in city.neighbors
+                       if neigh.isSea()]
+
+            frontier += expands
+
+
 def setWetness(map):
     # Cities are wetter if they're near rivers or oceans, or equatorial
     # Assign proximity to water
-    queue = [(city, 0) for city in map.cities.values() if city.isSea() or
-             city.onRiver]
+    queue = [(city, 0) for city in map.cities.values() if
+             city.biome in ['Lake', 'Flood Plain', 'Ocean']]
     checked = set()
     avgR = (map.width * map.height / map.cityCount) ** 0.5
     while len(queue) > 0:
@@ -217,6 +239,29 @@ def setWetness(map):
                 queue.append((neigh, distance + 1))
 
 
+def setHydration(map):
+    # Cities are wetter if they're near rivers or lakes, or equatorial
+    # Assign proximity to water
+    queue = [(city, 0) for city in map.cities.values() if
+             city.biome in ['Lake', 'Flood Plain']]
+    checked = set()
+    avgR = (map.width * map.height / map.cityCount) ** 0.5
+    while len(queue) > 0:
+        city, distance = queue.pop(0)
+        if city not in checked:
+            city.coastal = city.isCoastal()
+            checked.add(city)
+
+            distFactor = 1 / (distance * avgR / 50 + 1)
+            # Magic rain function
+            latitude = city.center[1] / map.height
+            rainFactor = (0.6 - sin(4 * pi * (latitude - 0.15)) *
+                          sin(4 * pi * (latitude - 0.15) / 3)) / 1.8
+            city.hydration = (distFactor * 3 + rainFactor) / 4
+            for neigh in city.neighbors:
+                queue.append((neigh, distance + 1))
+
+
 def setTemperature(map):
     # Cities are colder if they're higher up, or near a pole. This effect
     # is dampened by wetness
@@ -229,12 +274,12 @@ def setTemperature(map):
 
 
 def setFertility(map):
-    # Cities are more fertile if they're wetter, and a temperate climate.
+    # Cities are more fertile if they're hydrated, and a temperate climate.
     # Hotness is less bad than coldness
     for city in map.cities.values():
         tempFactor = (sin(pi / 2 * city.temp ** 2) +
                       sin(3 * pi / 2 * city.temp ** 2) / 2) * 0.8
-        waterFactor = city.wetness * 1.2
+        waterFactor = city.hydration * 1.2
         city.fertility = (tempFactor + 3 * waterFactor) / 4
         city.capacity = city.fertility * (1 + city.infrastructure) * 250
 
@@ -252,6 +297,7 @@ def setVegetation(map):
             # Check if city got filled in twice
             if city not in filled:
                 city.vegetation += 0.4
+                city.biome = 'Forest'
                 filled.add(city)
                 expands = [neigh for neigh in city.neighbors
                            if neigh not in filled and
@@ -279,11 +325,40 @@ def setVegetation(map):
             break
 
 
+def setBiomes(map):
+    # Sets remaining biomes
+    for coords in map.cities:
+        c = map.cities[coords]
+        if c.biome in ['Ocean', 'Lake']:
+            continue
+        elif c.hydration < 0.3 and c.temp > 0.5:
+            c.biome = 'Desert'
+            c.fertility /= 5
+            c.vegetation /= 5
+        elif c.temp < 0.05:
+            c.biome = 'Icy'
+            c.fertility /= 5
+            c.vegetation /= 5
+        elif c.temp < 0.1:
+            c.biome = 'Tundra'
+            c.fertility /= 3
+            c.vegetation /= 3
+        elif c.altitude > 0.7:
+            c.biome = 'Mountains'
+            c.fertility *= 0.6
+        elif c.altitude > 0.4:
+            c.biome = 'Highlands'
+            c.fertility *= 0.8
+
+
 def initializeTerrain(map):
     # Call all the terrain initializing functions
     spawnLand(map)
     generateRivers(map)
+    findLakes(map)
     setWetness(map)
+    setHydration(map)
     setTemperature(map)
     setFertility(map)
     setVegetation(map)
+    setBiomes(map)
