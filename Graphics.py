@@ -87,18 +87,24 @@ def zoom(data, factor, x, y):
 
 
 def scroll(data, margin, x, y):
+    scrolled = False
     if 0 < x < data.viewSize[0] and 0 < y < data.viewSize[1]:
         if 0 < x < margin:
             data.viewPos[0] -= (margin - x) / ZOOM_FACTOR / data.zoom
+            scrolled = True
         elif data.viewSize[0] > x > data.viewSize[0] - margin:
             data.viewPos[0] += (x - data.viewSize[0] + margin) / \
                 ZOOM_FACTOR / data.zoom
+            scrolled = True
 
         if 0 < y < margin:
             data.viewPos[1] -= (margin - y) / ZOOM_FACTOR / data.zoom
+            scrolled = True
         elif data.viewSize[1] > y > data.viewSize[1] - margin:
             data.viewPos[1] += (y - data.viewSize[1] + margin) / \
                 ZOOM_FACTOR / data.zoom
+            scrolled = True
 
     limitView(data)
     recheckCenter(data)
+    return scrolled

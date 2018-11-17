@@ -77,14 +77,15 @@ def assimilate(target):
                     n.maxCulture == mc]
         if len(comrades) == 0:
             for n in target.neighbors:
-                for c in n.cultures:
+                c = n.maxCulture
+                if c:
                     if c.isAncestor(mc) or mc.isAncestor(c):
+                        amount = target.cultures[mc] * 0.8
                         if c in target.cultures:
-                            target.cultures[c] += target.cultures[mc]
+                            target.cultures[c] += amount
                         else:
-                            target.cultures[c] = target.cultures[mc]
-                        target.maxCulture = c
-                        target.cultures[mc] = 0
+                            target.cultures[c] = amount
+                        target.cultures[mc] -= amount
                         return
 
 

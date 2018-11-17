@@ -40,6 +40,8 @@ class City:
         self.difficulty = 200
         self.cityLevel = 0
 
+        self.polity = None
+
     def __hash__(self):
         return hash(self.center)
 
@@ -91,18 +93,13 @@ class City:
 
     def births(self):
         for culture in self.cultures:
-            factor = self.suitability(culture) * (1 - culture['HARDINESS']) + \
+            factor = self.suitability(culture) * \
+                (1 - culture['HARDINESS']) + \
                 culture['HARDINESS']
             realRate = 1 + culture['BIRTHS'] * factor
             self.cultures[culture] *= realRate
 
         self.population = sum([self.cultures[c] for c in self.cultures])
-        # No births when overpopulated
-        if self.population > self.capacity:
-            overPop = self.capacity / self.population
-            for culture in self.cultures:
-                self.cultures[culture] *= overPop
-        assert(sum([self.cultures[c] for c in self.cultures]) <= self.capacity)
 
     # --- Infrastructure ---
 
@@ -120,12 +117,12 @@ class City:
             self.infrastructure *= 0.9
 
     def setCityLevel(self):
-        thresholds = [190, 500, 1000, 2500, 10000, 100000, 1000000]
-        self.difficulty = thresholds[self.cityLevel]
+        thresholds = [380, 1000, 2500, 10000, 100000, 1000000]
+        self.difficulty = thresholds[self.cityLevel] / 2
         if self.population > thresholds[self.cityLevel + 1]:
             self.cityLevel += 1
             if self.cityLevel == 2:
-                self.polity = Polity()
+                self.polity = Polity(self, liege=self.polity)
 
     # --- Migration ---
 
@@ -180,37 +177,12 @@ class City:
         else:
             return remainder
 
-    def overflowMigration(self):
-        # Calculate emigration from this city and queues them up
-        mc = self.maxCulture
-        if mc:
-            destinations = [n for n in self.neighbors if not n.isSea()]
-
-            excess = self.population - self.capacity
-
-            if excess > 0 and destinations:
-                minorityExcess = self.population - self.cultures[mc] -\
-                    self.capacity * mc['TOLERANCE']
-                maxExcess = excess - minorityExcess
-
-                if maxExcess > 0:
-                    destinations.sort(key=lambda n: n.value(mc), reverse=True)
-                    self.distribute(maxExcess, mc, destinations)
-
-                if minorityExcess > 0:
-                    for culture in self.cultures:
-                        if culture != mc:
-                            destinations.sort(key=lambda n: n.value(culture),
-                                              reverse=True)
-                            self.distribute(minorityExcess, culture,
-                                            destinations)
-
-        self.population = sum(self.cultures.values())
-
     def migration(self):
         # Emigration from between the migration cap and the hard cap
         for culture in self.cultures:
             factor = 1 - culture['MIGRATE']
+            if culture != self.maxCulture and self.maxCulture:
+                factor *= self.maxCulture['TOLERANCE']
             migExcess = self.cultures[culture] - self.capacity * factor
 
             if migExcess > 0:
@@ -218,9 +190,9 @@ class City:
                 if destinations:
                     destinations.sort(key=lambda n: n.value(culture),
                                       reverse=True)
-                    migExcess -= self.distribute(migExcess, culture,
-                                                 destinations, overflow=False,
-                                                 hardCap=False)
+                    migExcess = self.distribute(migExcess, culture,
+                                                destinations, overflow=False,
+                                                hardCap=False)
 
                 destinations = [n for n in self.neighbors if not n.isSea() and
                                 n.value(culture) > self.value(culture)]
@@ -322,10 +294,7 @@ class City:
 
     def tick(self):
         # Births
-        if self.maxCulture:
-            assert(self.maxCulture in self.cultures)
         self.births()
-        self.overflowMigration()
         self.migration()
         self.exploration()
 
@@ -333,7 +302,6 @@ class City:
         self.immigrate()
         self.build()
         self.setCityLevel()
-        assimilate(self)
         if self.divergencePressure > DIVERGENCE_THRESHOLD:
             if random() > 0.25 + self.maxCulture['HARDINESS']:
                 diverge(self)
@@ -343,6 +311,7 @@ class City:
         for culture in self.mergePressures:
             if self.mergePressures[culture] > MERGE_THRESHOLD:
                 merge(self, culture)
+        assimilate(self)
 
     def postTick(self):
         self.rescale()
@@ -371,10 +340,16 @@ class City:
             color = mixColors(DRY_COLOR, GRASS_COLOR, self.fertility)
         elif data.drawMode == 4:
             color = mixColors(GRASS_COLOR, FOREST_COLOR, self.vegetation)
-        else:
+        elif data.drawMode == 5:
             if self.maxCulture:
                 saturation = 0.95
                 color = mixColors(baseColor, self.maxCulture.color, saturation)
+            else:
+                color = baseColor
+        elif data.drawMode == 6:
+            if self.polity:
+                saturation = 0.95
+                color = mixColors(baseColor, self.polity.color, saturation)
             else:
                 color = baseColor
         canvas.create_polygon(sVertices,
@@ -382,11 +357,12 @@ class City:
                               outline='')
 
     def drawDecorations(self, canvas, data):
-        circleR = (self.population / 5) ** (1 / 4)
-        if circleR > 1: 
-            circlepts = [[self.center[0] - circleR,
-                          self.center[1] - circleR],
-                         [self.center[0] + circleR,
-                          self.center[1] + circleR]]
-            circlepts = [scale(pt, data) for pt in circlepts]
-            canvas.create_oval(circlepts)
+        if self.cityLevel > 0:
+            circleR = self.cityLevel
+            if circleR >= 1:
+                circlepts = [[self.center[0] - circleR,
+                              self.center[1] - circleR],
+                             [self.center[0] + circleR,
+                              self.center[1] + circleR]]
+                circlepts = [scale(pt, data) for pt in circlepts]
+                canvas.create_oval(circlepts)

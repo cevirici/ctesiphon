@@ -41,7 +41,7 @@ class Culture:
     EXPLORATIVE = Trait('Explorative', 'EXPLORE', 0.3, 0.8, 0.07)
     HARDINESS = Trait('Adaptible', 'HARDINESS', 0, 0.5, 0.05)
     TOLERANT = Trait('Tolerant', 'TOLERANCE', 0.6, 1, 0.05)
-    INNOVATION = Trait('Innovative', 'INNOV', 0, 1, 0.1)
+    INNOVATION = Trait('Innovative', 'INNOV', 0.3, 1, 0.1)
 
     def __init__(self, origin, lang=None, subLanguages=None):
         self.origin = origin

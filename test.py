@@ -1,24 +1,11 @@
 from tkinter import *
 from Voronoi import *
+from Map import *
 from Terrain import *
 from random import *
 from PIL import ImageTk
 
 MAP_SIZE = 4000
-
-
-def timerFired(data):
-    # Handle scrolling
-    SCROLL_MARGINS = 250
-    x = data.root.winfo_pointerx() - data.root.winfo_rootx() - data.mapPos[0]
-    y = data.root.winfo_pointery() - data.root.winfo_rooty() - data.mapPos[1]
-    scroll(data, SCROLL_MARGINS, x, y)
-    if not data.paused:
-        data.ticks += 1
-        if data.ticks == data.tickRate:
-            data.ticks = 0
-            if isinstance(data.map, Map):
-                data.map.update()
 
 
 def redrawHud(canvas, data):
@@ -28,11 +15,12 @@ def redrawHud(canvas, data):
     data.hudBot = ImageTk.PhotoImage(file='img\\interfaceBot.png')
     data.hudRight = ImageTk.PhotoImage(file='img\\interfaceRight.png')
 
-    canvas.create_image(0, 0, anchor=NW, image=data.hudTop)
-    canvas.create_image(0, 0, anchor=NW, image=data.hudLeft)
+    canvas.create_image(0, 0, anchor=NW, image=data.hudTop, tag='HUD')
+    canvas.create_image(0, 0, anchor=NW, image=data.hudLeft, tag='HUD')
     canvas.create_image(data.width, data.height, anchor=SE,
-                        image=data.hudRight)
-    canvas.create_image(data.width, data.height, anchor=SE, image=data.hudBot)
+                        image=data.hudRight, tag='HUD')
+    canvas.create_image(data.width, data.height, anchor=SE, image=data.hudBot,
+                        tag='HUD')
 
     provNamePos = [950, 53]
     provWetnessPos = [950, 150]
@@ -45,16 +33,21 @@ def redrawHud(canvas, data):
     if data.activeCity:
         canvas.create_text(provNamePos, anchor=NW, justify='left',
                            text=printWord(data.activeCity.name).capitalize(),
-                           fill='white', font=HUD_FONT)
+                           fill='white', font=HUD_FONT,
+                           tag='HUD')
         canvas.create_text(provWetnessPos, anchor=NW, justify='left',
                            text=data.activeCity.infrastructure * 100,
-                           fill='white', font=HUD_FONT)
-        canvas.create_text(moreDataPos, anchor=NW, justify='left',
-                           text=data.activeCity.progress,
-                           fill='white', font=HUD_FONT)
+                           fill='white', font=HUD_FONT,
+                           tag='HUD')
+        if data.activeCity.polity:
+            canvas.create_text(moreDataPos, anchor=NW, justify='left',
+                               text=data.activeCity.polity.influence(data.activeCity),
+                               fill='white', font=HUD_FONT,
+                               tag='HUD')
         canvas.create_text(morerDataPos, anchor=NW, justify='left',
-                           text=str(data.activeCity.population) + '/' + str(int(data.activeCity.capacity)),
-                           fill='white', font=HUD_FONT)
+                           text=int(data.activeCity.population),
+                           fill='white', font=HUD_FONT,
+                           tag='HUD')
 
         popText = ""
         popNumsText = ""
@@ -69,11 +62,13 @@ def redrawHud(canvas, data):
         canvas.create_text(popPos,
                            text=popText,
                            anchor=NW, justify='left',
-                           fill='white', font=HUD_FONT)
+                           fill='white', font=HUD_FONT,
+                           tag='HUD')
         canvas.create_text(popNumsPos,
                            text=popNumsText,
                            anchor=NE, justify='right',
-                           fill='white', font=HUD_FONT)
+                           fill='white', font=HUD_FONT,
+                           tag='HUD')
 
         if data.activeCity.maxCulture:
             mc = data.activeCity.maxCulture
@@ -82,13 +77,14 @@ def redrawHud(canvas, data):
             canvas.create_text([950, 600],
                                text=dataString,
                                anchor=NW, justify='left',
-                               fill='white', font=HUD_FONT)
+                               fill='white', font=HUD_FONT,
+                               tag='HUD')
 
 
 def keyPressed(event, data):
     if event.keysym == 'k':
         data.drawMode += 1
-        if data.drawMode == 6:
+        if data.drawMode == 7:
             data.drawMode = 0
     elif event.keysym == 'l':
         data.map.update()
@@ -129,6 +125,12 @@ def redrawAll(canvas, data):
     redrawHud(canvas, data)
 
 
+def redrawHudWrapper(canvas, data):
+    canvas.delete('HUD')
+    redrawHud(canvas, data)
+    canvas.update()
+
+
 def redrawAllWrapper(canvas, data):
     # Wrapper for redraw events
     canvas.delete(ALL)
@@ -138,12 +140,34 @@ def redrawAllWrapper(canvas, data):
     canvas.update()
 
 
+def timerFired(canvas, data):
+    updateMap = False
+    # Handle scrolling
+    SCROLL_MARGINS = 250
+    x = data.root.winfo_pointerx() - data.root.winfo_rootx() - data.mapPos[0]
+    y = data.root.winfo_pointery() - data.root.winfo_rooty() - data.mapPos[1]
+    if scroll(data, SCROLL_MARGINS, x, y):
+        updateMap = True
+    if not data.paused:
+        data.ticks += 1
+        if data.ticks == data.tickRate:
+            data.ticks = 0
+            if isinstance(data.map, Map):
+                data.map.update()
+                updateMap = True
+
+    if updateMap:
+        redrawAllWrapper(canvas, data)
+    else:
+        redrawHudWrapper(canvas, data)
+
+
 def makeMap(canvas, data):
     data.points = [(random() * data.mapSize[0], random() * data.mapSize[1])
                    for i in range(MAP_SIZE)]
     data.map = Mapmaker(data.points, data.viewSize[0], data.viewSize[1])
     data.viewPos = [100, 100]
-    data.zoom = 3
+    data.zoom = 3.3
     redrawAllWrapper(canvas, data)
 
     for i in range(4):
@@ -157,7 +181,7 @@ def makeMap(canvas, data):
 
     data.oldMap = data.map
     data.map = Map(data.map, data)
-    data.map.initializeTerrain()
+    initializeTerrain(data.map)
     data.map.spawnCultures()
     redrawAllWrapper(canvas, data)
     data.ticks = -1
@@ -216,8 +240,7 @@ def setup(data):
 
 def run():
     def timerFiredWrapper(canvas, data):
-        timerFired(data)
-        redrawAllWrapper(canvas, data)
+        timerFired(canvas, data)
 
         # pause, then call timerFired again
         canvas.after(data.timerDelay, timerFiredWrapper, canvas, data)

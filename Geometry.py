@@ -5,6 +5,7 @@
 # # --- --- --- ---
 
 from itertools import product
+from math import pi, atan2
 
 
 def dist(p1, p2):
@@ -105,3 +106,18 @@ def findCentroid(poly):
                            poly[i + 1][0] * poly[i][1]) for i in range(n)])
 
     return (Cx, Cy)
+
+
+def getHeading(origin, dest):
+    # Gets the heading between two cities
+    return atan2(dest.center[1] - origin.center[1],
+                 dest.center[0] - origin.center[0])
+
+
+def headingDiff(heading_a, heading_b):
+    # Returns the absolute value of the difference between
+    # two headings
+    raw = abs(heading_a - heading_b)
+    if raw > pi:
+        raw = 2 * pi - raw
+    return raw
