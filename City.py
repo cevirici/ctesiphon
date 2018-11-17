@@ -102,6 +102,7 @@ class City:
             overPop = self.capacity / self.population
             for culture in self.cultures:
                 self.cultures[culture] *= overPop
+        assert(sum([self.cultures[c] for c in self.cultures]) <= self.capacity)
 
     # --- Infrastructure ---
 
@@ -198,9 +199,11 @@ class City:
 
                 if minorityExcess > 0:
                     for culture in self.cultures:
-                        destinations.sort(key=lambda n: n.value(culture),
-                                          reverse=True)
-                        self.distribute(minorityExcess, mc, destinations)
+                        if culture != mc:
+                            destinations.sort(key=lambda n: n.value(culture),
+                                              reverse=True)
+                            self.distribute(minorityExcess, culture,
+                                            destinations)
 
         self.population = sum(self.cultures.values())
 
@@ -281,7 +284,7 @@ class City:
     def immigrate(self):
         # Executes on the immigrants entering
         for culture, amount in self.immigrants:
-            self.emigrate(culture, - 0.9 * amount)
+            self.emigrate(culture, -amount)
         self.immigrantPop = 0
         self.immigrants.clear()
 
