@@ -26,6 +26,7 @@ def loadImages(data):
     data.hudLeft = ImageTk.PhotoImage(file='img\\interfaceLeft.png')
     data.hudBot = ImageTk.PhotoImage(file='img\\interfaceBot.png')
     data.hudRight = ImageTk.PhotoImage(file='img\\interfaceRight.png')
+    data.pauseButton = ImageTk.PhotoImage(file='img\\button-pause.png')
 
 
 def redrawSideButtons(canvas, data):
@@ -42,6 +43,13 @@ def redrawSideButtons(canvas, data):
         canvas.create_image(buttonPositions[i],
                             image=data.buttons[i],
                             tag='HUD')
+
+    if data.paused:
+        canvas.create_rectangle(data.width - 53, 0, data.width, 52,
+                                fill=rgbToColor(HIGHLIGHT), width=0,
+                                tag='HUD')
+    canvas.create_image(data.width, 0, image=data.pauseButton, anchor=NE,
+                        tag='HUD')
 
 
 def drawCityInfo(canvas, data):
@@ -134,7 +142,7 @@ def redrawHud(canvas, data):
                         tag='HUD')
     redrawSideButtons(canvas, data)
 
-    canvas.create_text(1250, 10, text=data.ticks)
+    canvas.create_text(1220, 10, text=data.ticks)
 
     if data.activeCity:
         drawCityInfo(canvas, data)
@@ -157,6 +165,22 @@ def keyPressed(event, data):
         data.ticks = 0
 
 
+def checkButtonPresses(event, data):
+    # Check for clicking on interface buttons
+    positions = [[980 + (i % 5) * 50,
+                  140 + (i // 5) * 40] for i in range(7)]
+    size = [20, 15]
+    for i in range(len(positions)):
+        if positions[i][0] - size[0] <= event.x <= \
+                positions[i][0] + size[0] and \
+                positions[i][1] - size[1] <= event.y <= \
+                positions[i][1] + size[1]:
+            data.drawMode = i
+
+    if event.x > data.width - 50 and event.y < 50:
+        data.paused = not data.paused
+
+
 def mousePressed(event, data):
     if isinstance(data.map, Map):
         x = event.x - data.mapPos[0]
@@ -169,6 +193,8 @@ def mousePressed(event, data):
                 data.activeCity = closest
             else:
                 data.activeCity = None
+
+    checkButtonPresses(event, data)
 
 
 def mouseWheel(event, data):
