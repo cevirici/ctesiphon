@@ -5,79 +5,139 @@ from Terrain import *
 from random import *
 from PIL import ImageTk
 
-MAP_SIZE = 4000
+MAP_SIZE = 800
 
 
-def redrawHud(canvas, data):
-    # Redraws the interface
+def loadImages(data):
+    # Preload images into data
+    buttonimages = ['button-terrain.png',
+                    'button-water.png',
+                    'button-temp.png',
+                    'button-farm.png',
+                    'button-vegetation.png',
+                    'button-culture.png',
+                    'button-polity.png']
+    data.buttons = []
+    for i in range(len(buttonimages)):
+        data.buttons.append(ImageTk.PhotoImage(file='img\\' + buttonimages[i]))
+    data.sidebarImage = ImageTk.PhotoImage(file='img\\cityHud.png')
+
     data.hudTop = ImageTk.PhotoImage(file='img\\interfaceTop.png')
     data.hudLeft = ImageTk.PhotoImage(file='img\\interfaceLeft.png')
     data.hudBot = ImageTk.PhotoImage(file='img\\interfaceBot.png')
     data.hudRight = ImageTk.PhotoImage(file='img\\interfaceRight.png')
 
+
+def redrawSideButtons(canvas, data):
+    # Redraws the sidebar buttons
+    buttonPositions = [[980 + (i % 5) * 50,
+                        140 + (i // 5) * 40] for i in range(7)]
+    for i in range(len(buttonPositions)):
+        if i == data.drawMode:
+            corner = [buttonPositions[i][0] - 22,
+                      buttonPositions[i][1] - 17]
+            bottomCorner = [corner[0] + 44, corner[1] + 34]
+            canvas.create_rectangle(corner, bottomCorner,
+                                    fill=rgbToColor(HIGHLIGHT), width=0)
+        canvas.create_image(buttonPositions[i],
+                            image=data.buttons[i],
+                            tag='HUD')
+
+
+def drawCityInfo(canvas, data):
+    # Draws the info about tha active city
+    ac = data.activeCity
+
+    provNamePos = [950, 53]
+    sidebarPos = [1096, 500]
+    popPos = [953, 340]
+    popNumsPos = [1240, 340]
+    canvas.create_image(sidebarPos,
+                        image=data.sidebarImage,
+                        tag='HUD')
+    canvas.create_text(provNamePos, anchor=NW, justify='left',
+                       text=printWord(ac.name).capitalize(),
+                       fill='white', font=HUD_FONT,
+                       tag='HUD')
+
+    totalPopPos = [1148, 256]
+    capacityPos = [1180, 256]
+    canvas.create_text(totalPopPos, anchor=E, justify='right',
+                       text=int(ac.population),
+                       fill='white', font=HUD_FONT,
+                       tag='HUD')
+    canvas.create_text(capacityPos, anchor=W, justify='left',
+                       text=int(ac.capacity),
+                       fill='white', font=HUD_FONT,
+                       tag='HUD')
+
+    popText = ""
+    popNumsText = ""
+    cultures = sorted(ac.cultures.keys(),
+                      key=lambda c: ac.cultures[c],
+                      reverse=True)[:5]
+    for culture in cultures:
+        pop = int(ac.cultures[culture])
+        popText += "{}:\n".format(printWord(culture.name).capitalize())
+        popNumsText += "{}\n".format(pop)
+
+    canvas.create_text(popPos,
+                       text=popText,
+                       anchor=NW, justify='left',
+                       fill='white', font=HUD_FONT,
+                       tag='HUD')
+    canvas.create_text(popNumsPos,
+                       text=popNumsText,
+                       anchor=NE, justify='right',
+                       fill='white', font=HUD_FONT,
+                       tag='HUD')
+
+    fertilityPos = [1000, 562]
+    fertility = min(1, ac.fertility)
+    fertilityEnd = [fertilityPos[0] + 209 * fertility, fertilityPos[1] + 12]
+    canvas.create_rectangle(fertilityPos, fertilityEnd,
+                            fill='green', width=0, tag='HUD')
+
+    tempPos = [1000, 616]
+    temp = max(0, ac.temp)
+    tempEnd = [tempPos[0] + 209 * temp, tempPos[1] + 12]
+    canvas.create_rectangle(tempPos, tempEnd,
+                            fill='green', width=0, tag='HUD')
+
+    progressPos = [1000, 670]
+    if ac.maxCulture:
+        diff = (ac.population - ac.difficulty) / ac.difficulty
+        diff = max(0, diff)
+        progress = ac.maxCulture['INNOV'] * diff * (1 - ac.vegetation)
+        rate = progress / (5 * ac.difficulty ** 0.5)
+    else:
+        rate = 0
+    progressEnd = [progressPos[0] + 209 * rate, progressPos[1] + 12]
+    canvas.create_rectangle(progressPos, progressEnd,
+                            fill='green', width=0, tag='HUD')
+
+    infraPos = [1150, 732]
+    canvas.create_text(infraPos,
+                       text=int(ac.infrastructure * 10),
+                       anchor=NE, justify='right',
+                       fill='white', font=HUD_FONT,
+                       tag='HUD')
+
+
+def redrawHud(canvas, data):
+    # Redraws the interface
     canvas.create_image(0, 0, anchor=NW, image=data.hudTop, tag='HUD')
     canvas.create_image(0, 0, anchor=NW, image=data.hudLeft, tag='HUD')
     canvas.create_image(data.width, data.height, anchor=SE,
                         image=data.hudRight, tag='HUD')
     canvas.create_image(data.width, data.height, anchor=SE, image=data.hudBot,
                         tag='HUD')
-
-    provNamePos = [950, 53]
-    provWetnessPos = [950, 150]
-    moreDataPos = [950, 200]
-    morerDataPos = [950, 250]
-    popPos = [950, 350]
-    popNumsPos = [1260, 350]
+    redrawSideButtons(canvas, data)
 
     canvas.create_text(1250, 10, text=data.ticks)
+
     if data.activeCity:
-        canvas.create_text(provNamePos, anchor=NW, justify='left',
-                           text=printWord(data.activeCity.name).capitalize(),
-                           fill='white', font=HUD_FONT,
-                           tag='HUD')
-        canvas.create_text(provWetnessPos, anchor=NW, justify='left',
-                           text=data.activeCity.infrastructure * 100,
-                           fill='white', font=HUD_FONT,
-                           tag='HUD')
-        canvas.create_text(moreDataPos, anchor=NW, justify='left',
-                           text=data.activeCity.biome,
-                           fill='white', font=HUD_FONT,
-                           tag='HUD')
-        canvas.create_text(morerDataPos, anchor=NW, justify='left',
-                           text=int(data.activeCity.population),
-                           fill='white', font=HUD_FONT,
-                           tag='HUD')
-
-        popText = ""
-        popNumsText = ""
-        cultures = sorted(data.activeCity.cultures.keys(),
-                          key=lambda c: data.activeCity.cultures[c],
-                          reverse=True)
-        for culture in cultures:
-            pop = int(data.activeCity.cultures[culture])
-            popText += "{}:\n".format(printWord(culture.name).capitalize())
-            popNumsText += "{}\n".format(pop)
-
-        canvas.create_text(popPos,
-                           text=popText,
-                           anchor=NW, justify='left',
-                           fill='white', font=HUD_FONT,
-                           tag='HUD')
-        canvas.create_text(popNumsPos,
-                           text=popNumsText,
-                           anchor=NE, justify='right',
-                           fill='white', font=HUD_FONT,
-                           tag='HUD')
-
-        if data.activeCity.maxCulture:
-            mc = data.activeCity.maxCulture
-            baseString = 'A:{}\nB:{}\nM:{}\nE:{}\nT:{}'
-            dataString = baseString.format(*mc.traits.values())
-            canvas.create_text([950, 600],
-                               text=dataString,
-                               anchor=NW, justify='left',
-                               fill='white', font=HUD_FONT,
-                               tag='HUD')
+        drawCityInfo(canvas, data)
 
 
 def keyPressed(event, data):
@@ -198,6 +258,7 @@ def init(canvas, data):
     data.tickRate = 10
     data.paused = False
 
+    loadImages(data)
     makeMap(canvas, data)
 
 

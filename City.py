@@ -326,7 +326,7 @@ class City:
         sVertices = [scale(vertex, data) for vertex in self.vertices]
         baseColor = biomes[self.biome].getColor(self)
 
-        if data.drawMode == 0:
+        if data.drawMode == 0 or self.biome in ['Lake', 'Ocean']:
             color = baseColor
         elif data.drawMode == 1:
             color = mixColors(DRY_COLOR, GRASS_COLOR, self.wetness)

@@ -17,7 +17,13 @@ class Polity:
         self.culture = origin.maxCulture
         self.capital = origin
         self.territories = {origin}
+        self.weightedPop = 0
+
         self.liege = liege
+        if liege:
+            liege.subjects.add(self)
+        self.subjects = set()
+
         self.color = [self.culture.color[i] + randint(2, 8) * choice([1, -1])
                       for i in range(3)]
         for i in range(3):
@@ -26,7 +32,6 @@ class Polity:
         self.actionPoints = [0, 0, 0]
         # Expansion, Development, Research
         self.traits = [random() for i in range(3)]
-
         self.progress = 0
 
         Polity.polities.append(self)
@@ -88,6 +93,13 @@ class Polity:
     def research(self):
         self.progress += self.capital.population
 
+    def independence(self):
+        # Declare independence from liege if stronger
+        if self.liege:
+            if self.liege.weightedPop < 2 * self.weightedPop:
+                self.liege = None
+                liege.subjects.discard(self)
+
     def tick(self):
         actions = [self.expand, self.develop, self.research]
         for i in range(len(self.actionPoints)):
@@ -96,3 +108,6 @@ class Polity:
             if self.actionPoints[i] > self.traits[i]:
                 self.actionPoints[i] -= self.traits[i]
                 actions[i]()
+
+        self.weightedPop = sum([c.population for c in self.territories]) + \
+            sum([subject.weightedPop for subject in self.subjects]) / 2

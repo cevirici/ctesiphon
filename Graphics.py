@@ -18,8 +18,8 @@ DRY_COLOR = (242, 244, 114)
 COLD_COLOR = (99, 235, 255)
 HOT_COLOR = (242, 56, 56)
 
-LOADING_FONT = ('Garamond', 48)
-HUD_FONT = ('Garamond', 22)
+LOADING_FONT = ('Garamond', 36)
+HUD_FONT = ('Consolas', 16)
 
 BORDER = 15
 ZOOM_FACTOR = 1.5
