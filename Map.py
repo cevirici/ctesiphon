@@ -81,12 +81,17 @@ class Map:
 
             origin = choice(sources)
             newCulture = Culture(origin)
-            origin.emigrate(newCulture, -50)
+            origin.cultures[newCulture] = 50
+            origin.currentBuilding = buildings[-4]
+            for building in buildings[:-4]:
+                building.build(origin)
 
-    def update(self):
+    def update(self, data):
         # Call tick events
         for city in self.cities.values():
             city.tick()
+            if city.population < 0:
+                data.activeCity = city
 
         # Enact transfers
         for city in self.cities.values():

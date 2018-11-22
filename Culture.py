@@ -36,12 +36,13 @@ class Trait:
 class Culture:
     cultures = set()
     AGRICULTURALIST = Trait('Agriculturalist', 'AGRI', 0, 1, 0.1)
-    BIRTHRATE = Trait('Birth Rate', 'BIRTHS', 0.04, 0.15, 0.02)
+    BIRTHRATE = Trait('Birth Rate', 'BIRTHS', 0.04, 0.10, 0.01)
     MIGRATORY = Trait('Nomadic', 'MIGRATE', 0.1, 0.4, 0.05)
     EXPLORATIVE = Trait('Explorative', 'EXPLORE', 0.3, 0.8, 0.07)
     HARDINESS = Trait('Adaptible', 'HARDINESS', 0, 0.5, 0.05)
     TOLERANT = Trait('Tolerant', 'TOLERANCE', 0.6, 1, 0.05)
-    INNOVATION = Trait('Innovative', 'INNOV', 0.3, 1, 0.1)
+    INNOVATION = Trait('Innovative', 'INNOV', 0.4, 1, 0.1)
+    MILITANCE = Trait('Militant', 'MILITANCE', 0.05, 0.65, 0.05)
 
     def __init__(self, origin, lang=None, subLanguages=None):
         self.origin = origin
@@ -57,12 +58,11 @@ class Culture:
         self.traits = {}
 
         self.traits[Culture.AGRICULTURALIST] = origin.fertility
-        self.traits[Culture.BIRTHRATE] = Culture.BIRTHRATE.randomize()
-        self.traits[Culture.MIGRATORY] = Culture.MIGRATORY.randomize()
-        self.traits[Culture.EXPLORATIVE] = Culture.EXPLORATIVE.randomize()
-        self.traits[Culture.HARDINESS] = Culture.HARDINESS.randomize()
-        self.traits[Culture.TOLERANT] = Culture.TOLERANT.randomize()
-        self.traits[Culture.INNOVATION] = Culture.INNOVATION.randomize()
+        for trait in [Culture.BIRTHRATE, Culture.MIGRATORY,
+                      Culture.EXPLORATIVE, Culture.HARDINESS,
+                      Culture.TOLERANT, Culture.INNOVATION,
+                      Culture.MILITANCE]:
+            self.traits[trait] = trait.randomize()
 
         self.subCultures = {}
 

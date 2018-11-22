@@ -281,7 +281,7 @@ def setFertility(map):
                       sin(3 * pi / 2 * city.temp ** 2) / 2) * 0.8
         waterFactor = city.hydration * 1.2
         city.fertility = (tempFactor + 3 * waterFactor) / 4
-        city.capacity = city.fertility * (1 + city.infrastructure) * 250
+        city.capacity = city.fertility * 250
 
 
 def setVegetation(map):
@@ -349,6 +349,8 @@ def setBiomes(map):
         elif c.altitude > 0.4:
             c.biome = 'Highlands'
             c.fertility *= 0.8
+    
+        c.capacity = c.fertility * 250
 
 
 def initializeTerrain(map):

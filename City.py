@@ -5,10 +5,10 @@
 # # --- --- --- ---
 
 from Biome import *
+from Buildings import *
 from CityCulture import *
 from Graphics import *
 from Geometry import dist
-from Polity import *
 from random import random, choice
 
 DEFAULT_NAME = "Uninhabited"
@@ -28,26 +28,39 @@ class City:
         self.downstream = None
         self.biome = 'Lake'
 
-        self.cultures = {}
         self.maxCulture = None
+        self.cultures = {}
         self.population = 0
-        self.divergencePressure = 0
-        self.mergePressures = {}
         self.immigrants = []
         self.immigrantPop = 0
 
-        self.infrastructure = 0
+        self.divergencePressure = 0
+        self.mergePressures = {}
+
+        self.armies = set()
+        self.garrison = 0
+        self.garrisonMax = 0
+        self.builders = 0
+        self.builderMax = 10
+
+        self.currentBuilding = buildings[0]
         self.progress = 0
-        self.difficulty = 200
         self.cityLevel = 0
+        self.buildings = set()
+
+        self.supplies = 0
+        self.storageEff = 1
+        self.farmEff = 0.03
 
         self.polity = None
+
+        self.john = False
 
     def __hash__(self):
         return hash(self.center)
 
     def __repr__(self):
-        return printWord(self.name).capitalize()
+        return self.name
 
     # --- Geography Functions ---
 
@@ -97,6 +110,9 @@ class City:
             factor = self.suitability(culture) * \
                 (1 - culture['HARDINESS']) + \
                 culture['HARDINESS']
+            if self.polity:
+                if culture == self.polity.culture:
+                    factor *= 2
             realRate = 1 + culture['BIRTHS'] * factor
             self.cultures[culture] *= realRate
 
@@ -104,28 +120,47 @@ class City:
 
     # --- Infrastructure ---
 
-    def build(self):
-        # Build infrastructue
-        if self.maxCulture:
-            diff = (self.population - self.difficulty) / self.difficulty
-            if diff > 0:
-                boost = self.maxCulture['INNOV'] * diff * (1 - self.vegetation)
-                self.progress += boost
-                if self.progress > 1:
-                    self.infrastructure += 0.1
-                    self.progress -= 1
-            else:
-                self.infrastructure *= 0.9
+    def farm(self):
+        # Generate supplies
+        for culture in self.cultures:
+            self.supplies += self.cultures[culture] * (1 + culture['AGRI'] *
+                                                       self.fertility *
+                                                       self.farmEff)
+        self.supplies = min(self.capacity * self.storageEff, self.supplies)
 
-    def setCityLevel(self):
-        thresholds = [380, 1000, 2500, 10000, 100000, 1000000]
-        self.difficulty = thresholds[self.cityLevel] / 2
-        if self.population > thresholds[self.cityLevel + 1]:
-            self.cityLevel += 1
-            if self.cityLevel == 2:
-                if self.polity:
-                    self.polity.territories.discard(self)
-                self.polity = Polity(self, liege=self.polity)
+    def employ(self):
+        # Turn 'spare' people into builders / soldiers
+        if self.maxCulture:
+            self.production = self.population * (self.maxCulture['AGRI'] *
+                                                 self.fertility *
+                                                 self.farmEff)
+            excess = self.production - self.builders - \
+                sum([army.size for army in self.armies])
+            # Proportion of excess to conscript
+            ratio = self.maxCulture['MILITANCE']
+            if excess > 0:
+                conscripts = min(ratio * excess,
+                                 self.garrisonMax - self.garrison)
+                self.garrison += conscripts
+                excess -= conscripts
+
+                newBuilders = min(excess, self.builderMax - self.builders)
+                self.builders += newBuilders
+            elif excess < 0:
+                self.builders *= 0.9
+                self.garrison *= 0.9
+
+    def build(self):
+        # Make progress towards the next building
+        if self.maxCulture:
+            boost = self.maxCulture['INNOV'] * self.builders * \
+                (1 - self.vegetation)
+            self.progress += boost
+            if self.progress > self.currentBuilding.requirement:
+                self.progress -= self.currentBuilding.requirement
+                self.currentBuilding.build(self)
+                buildingLevel = buildings.index(self.currentBuilding)
+                self.currentBuilding = buildings[buildingLevel + 1]
 
     # --- Migration ---
 
@@ -165,8 +200,9 @@ class City:
                 break
             target = targetList[i]
             amount = max(0, min(spaces[i], remainder))
-            spaces[i] -= amount
-            transfer(target, amount)
+            if amount > 20:
+                spaces[i] -= amount
+                transfer(target, amount)
 
         if remainder > 0 and overflow:
             for i in range(len(targetList)):
@@ -174,7 +210,8 @@ class City:
                     break
                 target = targetList[i]
                 amount = remainder / 2
-                transfer(target, amount)
+                if amount > 20:
+                    transfer(target, amount)
             transfer(targetList[0], remainder)
             return 0
         else:
@@ -188,7 +225,7 @@ class City:
                 factor *= self.maxCulture['TOLERANCE']
             migExcess = self.cultures[culture] - self.capacity * factor
 
-            if migExcess > 0:
+            if migExcess > 20:
                 destinations = [n for n in self.neighbors if not n.isSea()]
                 if destinations:
                     destinations.sort(key=lambda n: n.value(culture),
@@ -211,7 +248,7 @@ class City:
         mc = self.maxCulture
         if mc in self.cultures:
             excess = self.cultures[mc] - (1 - mc['EXPLORE']) * self.capacity
-            if excess > 0:
+            if excess > 20:
                 destinations = [n for n in self.neighbors if not n.isSea() and
                                 mc not in n.cultures]
                 if destinations:
@@ -233,28 +270,71 @@ class City:
             else:
                 self.name = smcl.transliterate(self.name)
 
-    def rescale(self):
-        # Rescale cultures to fit within capacity
-        total = sum(self.cultures.values())
-        newCultures = {}
-        oldMax = self.maxCulture
-        self.maxCulture = None
+    def consume(self):
+        # Consume supplies, die off if there's not enough
+        # Garrison
+        if self.supplies < self.garrison:
+            self.garrison = self.supplies
+            self.supplies = 0
+            return
+        else:
+            self.supplies -= self.garrison
 
-        if total > 0:
-            factor = min(1, self.capacity / total)
+        # Civilians
+        popMax = min(self.capacity, self.supplies)
+        if popMax < self.population:
+            ratio = popMax / self.population
             for culture in self.cultures:
-                newAmount = factor * self.cultures[culture]
-                if newAmount >= 1:
-                    newCultures[culture] = newAmount
-            if newCultures:
-                self.maxCulture = sorted(newCultures,
-                                         key=lambda x: newCultures[x])[-1]
-            else:
-                self.maxCulture = None
+                self.cultures[culture] *= ratio
+            self.supplies -= self.population * ratio
+            return
+        else:
+            self.supplies -= self.population
 
-        self.cultures = newCultures
+        # Armies
+        soldierPop = sum([army.size for army in self.armies])
+        if self.supplies < soldierPop:
+            ratio = self.supplies / soldierPop
+            for army in self.armies:
+                army.size *= ratio
+            self.supplies = 0
+            return
+        else:
+            self.supplies -= self.garrison
+
+        # Builders
+        builderCap = min(self.supplies, self.builderMax)
+        if builderCap < self.builders:
+            self.builders = builderCap
+            self.supplies = 0
+        else:
+            self.supplies -= self.builders
+
+    def rescale(self):
+        # Cap each population below their respective maxima
+        oldMax = self.maxCulture
+        # Population
+        newCultures = {}
+
+        for culture in self.cultures:
+            if self.cultures[culture] >= 1:
+                newCultures[culture] = self.cultures[culture]
+
+        if newCultures:
+            self.maxCulture = sorted(newCultures,
+                                     key=lambda x: newCultures[x])[-1]
+        else:
+            self.maxCulture = None
+
         if self.maxCulture != oldMax:
             self.takeover(oldMax)
+
+        self.cultures = newCultures
+
+        # Armies
+        for army in self.armies:
+            if army.size < 1:
+                army.demobilize()
 
     def immigrate(self):
         # Executes on the immigrants entering
@@ -266,7 +346,12 @@ class City:
     def recalculate(self):
         # Recalculate some things
         self.population = sum(self.cultures.values())
-        self.capacity = self.fertility * (1 + self.infrastructure) * 250
+
+        # If there's too many soldiers, kick them out
+        if self.polity:
+            garrisonCap = self.polity.militance * self.capacity
+            if self.garrison > garrisonCap:
+                self.garrison = garrisonCap
 
         sc = self.cultures
         if self.maxCulture in sc:
@@ -297,14 +382,15 @@ class City:
 
     def tick(self):
         # Births
+        self.farm()
         self.births()
+        self.employ()
         self.migration()
         self.exploration()
 
     def midTick(self):
         self.immigrate()
         self.build()
-        self.setCityLevel()
         if self.divergencePressure > DIVERGENCE_THRESHOLD:
             if random() > 0.25 + self.maxCulture['HARDINESS']:
                 diverge(self)
@@ -317,6 +403,7 @@ class City:
         assimilate(self)
 
     def postTick(self):
+        self.consume()
         self.rescale()
         self.recalculate()
 
@@ -325,6 +412,8 @@ class City:
     def draw(self, canvas, data):
         sVertices = [scale(vertex, data) for vertex in self.vertices]
         baseColor = biomes[self.biome].getColor(self)
+        if self.john:
+            baseColor = (255, 0, 0)
 
         if data.drawMode == 0 or self.biome in ['Lake', 'Ocean']:
             color = baseColor
@@ -343,12 +432,33 @@ class City:
             else:
                 color = baseColor
         elif data.drawMode == 6:
+            color = baseColor
+            saturation = 0.95
             if self.polity:
-                saturation = 0.95
-                color = mixColors(baseColor, self.polity.superLiege().color,
+                color = mixColors(baseColor,
+                                  self.polity.superLiege().color,
                                   saturation)
+                if data.activeCity:
+                    if data.activeCity.polity:
+                        children = data.activeCity.polity.subjects
+                        for subject in children:
+                            if self.polity.isSubject(subject) or \
+                                    self.polity == subject:
+                                color = mixColors(baseColor,
+                                                  subject.color,
+                                                  saturation)
+                            break
+                        if self.polity == data.activeCity.polity:
+                            color = mixColors(baseColor,
+                                              data.activeCity.polity.color,
+                                              saturation)
+
+        elif data.drawMode == 7:
+            if self.population:
+                factor = log(self.population, 10) / 6
             else:
-                color = baseColor
+                factor = 0
+            color = mixColors((255, 80, 80), (0, 255, 0), factor)
         canvas.create_polygon(sVertices,
                               fill=rgbToColor(color),
                               outline='')
@@ -358,8 +468,23 @@ class City:
             circleR = self.cityLevel
             if circleR >= 1:
                 circlepts = [[self.center[0] - circleR,
-                              self.center[1] - circleR],
+                              self.center[1] - 5 - circleR],
                              [self.center[0] + circleR,
-                              self.center[1] + circleR]]
+                              self.center[1] - 5 + circleR]]
                 circlepts = [scale(pt, data) for pt in circlepts]
                 canvas.create_oval(circlepts)
+
+        n = len(self.armies) + 1
+        i = 0
+        for army in self.armies:
+            i += 1
+            radius = log(army.size + 1) / 3
+            shift = [-10 + 20 / n * i, 5]
+            armyPts = [[self.center[0] + shift[0] - radius,
+                        self.center[1] + shift[1] - radius],
+                       [self.center[0] + shift[0] + radius,
+                        self.center[1] + shift[1] + radius]]
+            armyPts = [scale(pt, data) for pt in armyPts]
+            canvas.create_rectangle(armyPts,
+                                    outline='white',
+                                    fill=rgbToColor(army.owner.color))
