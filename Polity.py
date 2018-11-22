@@ -27,7 +27,7 @@ class Polity:
             liege.territories.discard(origin)
         self.subjects = set()
 
-        self.color = [int(self.culture.color[i] + randint(2, 8) *
+        self.color = [int(self.culture.color[i] + randint(10, 20) *
                           choice([1, -1]))
                       for i in range(3)]
         for i in range(3):
@@ -109,13 +109,13 @@ class Polity:
                 else:
                     idlers[army.location] = {army}
 
-        for location in idlers:
-            if len(idlers[location]) > 1:
-                newArmy = Army(location, self,
-                               sum([a.size for a in idlers[location]]))
+        for city in idlers:
+            if len(idlers[city]) > 1:
+                newArmy = Army(city, self,
+                               sum([a.size for a in idlers[city]]))
                 self.armies.add(newArmy)
                 city.armies.add(newArmy)
-                for a in idlers[location]:
+                for a in idlers[city]:
                     a.demobilize()
 
     # --- Individual Actions ---
@@ -232,10 +232,16 @@ class Polity:
             for subject in demander.subjects:
                 subject.requestedJoinWar(newWar, 0, demander)
         else:
-            self.territories.discard(target)
-            self.shiftRelations(target, -0.8)
-            demander.territories.add(target)
-            target.polity = demander
+            if target != self.capital:
+                self.territories.discard(target)
+                self.shiftRelations(target, -0.8)
+                demander.territories.add(target)
+                target.polity = demander
+            else:
+                if self.liege:
+                    self.liege.subjects.remove(self)
+                self.liege = demander
+                demander.subjects.add(self)
 
     def tick(self):
         actions = [self.expand, self.develop, self.research]

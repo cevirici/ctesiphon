@@ -41,11 +41,15 @@ def drawCityInfo(canvas, data):
     sidebarPos = [1096, 521]
     popPos = [953, 340]
     popNumsPos = [1240, 340]
+
+    provName = printWord(ac.name).capitalize()
+    if ac.polity:
+        provName += ' ({})'.format(printWord(ac.polity.name).capitalize())
     canvas.create_image(sidebarPos,
                         image=data.sidebarImage,
                         tag='HUD')
     canvas.create_text(provNamePos, anchor=NW, justify='left',
-                       text=printWord(ac.name).capitalize(),
+                       text=provName,
                        fill='white', font=HUD_FONT,
                        tag='HUD')
 

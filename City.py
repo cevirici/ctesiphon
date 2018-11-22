@@ -10,6 +10,7 @@ from CityCulture import *
 from Graphics import *
 from Geometry import dist
 from random import random, choice
+from copy import copy
 
 DEFAULT_NAME = "Uninhabited"
 
@@ -332,7 +333,8 @@ class City:
         self.cultures = newCultures
 
         # Armies
-        for army in self.armies:
+        newArmies = copy(self.armies)
+        for army in newArmies:
             if army.size < 1:
                 army.demobilize()
 
@@ -440,14 +442,13 @@ class City:
                                   saturation)
                 if data.activeCity:
                     if data.activeCity.polity:
-                        children = data.activeCity.polity.subjects
-                        for subject in children:
-                            if self.polity.isSubject(subject) or \
-                                    self.polity == subject:
+                        for subject in data.activeCity.polity.subjects:
+                            if self.polity == subject or \
+                                    self.polity.isSubject(subject):
                                 color = mixColors(baseColor,
                                                   subject.color,
                                                   saturation)
-                            break
+                                break
                         if self.polity == data.activeCity.polity:
                             color = mixColors(baseColor,
                                               data.activeCity.polity.color,
@@ -466,13 +467,14 @@ class City:
     def drawDecorations(self, canvas, data):
         if self.cityLevel > 0:
             circleR = self.cityLevel
+            color = 'black'
             if circleR >= 1:
                 circlepts = [[self.center[0] - circleR,
                               self.center[1] - 5 - circleR],
                              [self.center[0] + circleR,
                               self.center[1] - 5 + circleR]]
                 circlepts = [scale(pt, data) for pt in circlepts]
-                canvas.create_oval(circlepts)
+                canvas.create_oval(circlepts, outline=color)
 
         n = len(self.armies) + 1
         i = 0

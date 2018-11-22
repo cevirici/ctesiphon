@@ -81,7 +81,7 @@ class Map:
 
             origin = choice(sources)
             newCulture = Culture(origin)
-            origin.cultures[newCulture] = 50
+            origin.cultures[newCulture] = 2000
             origin.currentBuilding = buildings[-4]
             for building in buildings[:-4]:
                 building.build(origin)
