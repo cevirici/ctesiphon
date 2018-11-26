@@ -3,7 +3,7 @@ from Voronoi import *
 from Map import *
 from Terrain import *
 from random import *
-from HUD import *
+from Panels import *
 from PIL import ImageTk
 
 MAP_SIZE = 800
@@ -17,7 +17,8 @@ def loadImages(data):
                     'button-farm.png',
                     'button-vegetation.png',
                     'button-culture.png',
-                    'button-polity.png']
+                    'button-polity.png',
+                    'button-pop.png']
     data.buttons = []
     for i in range(len(buttonimages)):
         data.buttons.append(ImageTk.PhotoImage(file='img\\' + buttonimages[i]))
@@ -28,6 +29,20 @@ def loadImages(data):
     data.hudBot = ImageTk.PhotoImage(file='img\\interfaceBot.png')
     data.hudRight = ImageTk.PhotoImage(file='img\\interfaceRight.png')
     data.pauseButton = ImageTk.PhotoImage(file='img\\button-pause.png')
+
+    cultureIcons = ['culture-temp.png', 'culture-altitude.png',
+                    'culture-coastal.png', 'culture-temp.png',
+                    'culture-temp.png',
+                    'culture-temp.png',
+                    'culture-temp.png',
+                    'culture-temp.png',
+                    'culture-temp.png',
+                    'culture-temp.png',
+                    'culture-temp.png']
+    data.cultureIcons = []
+    for i in range(len(cultureIcons)):
+        data.cultureIcons.append(ImageTk.PhotoImage(file='img\\' +
+                                                    cultureIcons[i]))
 
 
 def keyPressed(event, data):
@@ -46,39 +61,24 @@ def keyPressed(event, data):
         data.tickRate += 2
         data.ticks = 0
     elif event.keysym == 'x':
-        data.activeCity.polity.mobilize(data.activeCity)
+        for war in War.wars:
+            print('Attackers:')
+            for polity in war.attackers:
+                print(printWord(polity.name).capitalize(), end=', ')
+            print('Defenders:')
+            for polity in war.defenders:
+                print(printWord(polity.name).capitalize(), end=', ')
 
 
-def checkButtonPresses(event, data):
-    # Check for clicking on interface buttons
-    positions = [[980 + (i % 5) * 50,
-                  140 + (i // 5) * 40] for i in range(7)]
-    size = [20, 15]
-    for i in range(len(positions)):
-        if positions[i][0] - size[0] <= event.x <= \
-                positions[i][0] + size[0] and \
-                positions[i][1] - size[1] <= event.y <= \
-                positions[i][1] + size[1]:
-            data.drawMode = i
-
-    if event.x > data.width - 50 and event.y < 50:
-        data.paused = not data.paused
+def mousePressed(coords, data):
+    # Bubble click events in reverse order
+    for panel in data.panels[::-1]:
+        if panel.click(coords, data):
+            return
 
 
-def mousePressed(event, data):
-    if isinstance(data.map, Map):
-        x = event.x - data.mapPos[0]
-        y = event.y - data.mapPos[1]
-        if 0 < x < data.viewSize[0] and 0 < y < data.viewSize[1]:
-            clickPoint = [x / data.zoom + data.viewPos[0],
-                          y / data.zoom + data.viewPos[1]]
-            closest = data.map.findClosestCity(clickPoint, data)
-            if closest:
-                data.activeCity = closest
-            else:
-                data.activeCity = None
-
-    checkButtonPresses(event, data)
+def mouseReleased(event, data):
+    data.clicking = False
 
 
 def mouseWheel(event, data):
@@ -88,33 +88,36 @@ def mouseWheel(event, data):
     zoom(data, factor, event.x, event.y)
 
 
-def redrawAll(canvas, data):
-    # Calls each draw function
-    data.map.draw(canvas, data)
-    redrawHud(canvas, data)
+def removePanel(canvas, data, panel):
+    # Remove a panel and wipe it
+    panel.wipe(canvas)
+    data.panels.remove(panel)
 
 
-def redrawHudWrapper(canvas, data):
-    canvas.delete('HUD')
-    redrawHud(canvas, data)
+def redrawPanel(canvas, data, panel):
+    panel.redraw(canvas, data)
     canvas.update()
 
 
-def redrawAllWrapper(canvas, data):
-    # Wrapper for redraw events
-    canvas.delete(ALL)
-    canvas.create_rectangle(0, 0, data.width, data.height,
-                            fill='#5E3C11', width=0)
-    redrawAll(canvas, data)
+def redrawNotMap(canvas, data):
+    for panel in data.panels:
+        if panel != mapPanel:
+            panel.redraw(canvas, data)
+    canvas.update()
+
+
+def redrawAll(canvas, data):
+    for panel in data.panels:
+        panel.redraw(canvas, data)
     canvas.update()
 
 
 def timerFired(canvas, data):
-    updateMap = False
     # Handle scrolling
+    updateMap = False
     SCROLL_MARGINS = 250
-    x = data.root.winfo_pointerx() - data.root.winfo_rootx() - data.mapPos[0]
-    y = data.root.winfo_pointery() - data.root.winfo_rooty() - data.mapPos[1]
+    x = data.root.winfo_pointerx() - data.root.winfo_rootx() - MAP_POS[0]
+    y = data.root.winfo_pointery() - data.root.winfo_rooty() - MAP_POS[1]
     if scroll(data, SCROLL_MARGINS, x, y):
         updateMap = True
     if not data.paused:
@@ -126,68 +129,82 @@ def timerFired(canvas, data):
                 updateMap = True
 
     if updateMap:
-        redrawAllWrapper(canvas, data)
-    else:
-        redrawHudWrapper(canvas, data)
+        # Not calling redrawPanel here, because we should only update canvas
+        # once
+        mapPanel.redraw(canvas, data)
+
+    if data.clicking:
+        mousePressed([data.root.winfo_pointerx() - data.root.winfo_rootx(),
+                      data.root.winfo_pointery() - data.root.winfo_rooty()],
+                     data)
+
+    redrawNotMap(canvas, data)
 
 
 def makeMap(canvas, data):
     data.points = [(random() * data.mapSize[0], random() * data.mapSize[1])
                    for i in range(MAP_SIZE)]
-    data.map = Mapmaker(data.points, data.viewSize[0], data.viewSize[1])
+    data.map = Mapmaker(data.points, data.mapSize[0], data.mapSize[1])
     data.viewPos = [100, 100]
     data.zoom = 3.3
-    redrawAllWrapper(canvas, data)
+    redrawAll(canvas, data)
 
     for i in range(4):
         data.map.fullParse()
         data.loadingMessage = 'Applying Reduction {}'.format(i + 1)
-        redrawAllWrapper(canvas, data)
+        redrawAll(canvas, data)
         data.map.reduce()
 
     data.map.fullParse()
-    redrawAllWrapper(canvas, data)
+    redrawAll(canvas, data)
 
     data.oldMap = data.map
     data.map = Map(data.map, data)
     initializeTerrain(data.map)
     data.map.spawnCultures()
-    redrawAllWrapper(canvas, data)
+
+    removePanel(canvas, data, loadPanel)
+    data.panels.insert(0, mapPanel)
+    redrawAll(canvas, data)
     data.ticks = -1
 
 
 def init(canvas, data):
-    data.activeCity = None
-    data.mapPos = [30, 30]
-    data.viewSize = [900, 900]
-    data.mapSize = data.viewSize
     data.timerDelay = 10
-    data.loadingMessage = 'Generating Initial Map'
-    data.drawMode = 5
     data.ticks = 0
     data.tickRate = 10
+    data.scrollBuffer = 8
+    data.scrolling = 0
     data.paused = False
+    data.clicking = False
+
+    data.panels = [loadPanel, hudPanel]
+    data.activeCity = None
+
+    data.mapSize = [MAP_SIZE, MAP_SIZE]
+    data.viewSize = VIEW_SIZE
+
+    data.loadingMessage = 'Generating Initial Map'
+    data.drawMode = 5
 
     loadImages(data)
+
     makeMap(canvas, data)
 
 
 def setup(data):
     def keyPressedWrapper(event, data):
         keyPressed(event, data)
-        redrawAllWrapper(data.canvas, data)
+        redrawAll(data.canvas, data)
 
     def mousePressedWrapper(event, data):
-        mousePressed(event, data)
-        redrawAllWrapper(data.canvas, data)
+        data.clicking = True
+        mousePressed([event.x, event.y], data)
+        redrawAll(data.canvas, data)
 
     def mouseWheelWrapper(event, data):
         mouseWheel(event, data)
-        redrawAllWrapper(data.canvas, data)
-
-    def mouseMotionWrapper(event, data):
-        mouseMotion(event, data)
-        redrawAllWrapper(data.canvas, data)
+        redrawAll(data.canvas, data)
 
     windowSize = [1280, 960]
     data.width = windowSize[0]
@@ -204,6 +221,8 @@ def setup(data):
                    keyPressedWrapper(event, data))
     data.root.bind("<Button-1>", lambda event:
                    mousePressedWrapper(event, data))
+    data.root.bind("<ButtonRelease-1>", lambda event:
+                   mouseReleased(event, data))
     data.root.bind("<MouseWheel>", lambda event:
                    mouseWheelWrapper(event, data))
 

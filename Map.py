@@ -135,61 +135,6 @@ class Map:
                     if neigh not in drawn and neigh.visible(data):
                         toDraw.append(neigh)
 
-    def drawCulture(self, origin, searched, canvas, data):
-        culture = origin.maxCulture
-        if culture is not None:
-            A, B = culture.origin, culture.origin
-            lastA, lastB = None, None
-            while A != lastA or B != lastB:
-                lastA, lastB = A, B
-                aCand = [n for n in A.neighbors
-                         if A.maxCulture == n.maxCulture]
-                if aCand:
-                    A = sorted(aCand,
-                               key=lambda x: dist(x.center, B.center))[-1]
-                    if dist(A.center, B.center) < dist(lastA.center, B.center):
-                        A = lastA
-                        break
-                else:
-                    break
-                bCand = [n for n in B.neighbors
-                         if B.maxCulture == n.maxCulture]
-                if bCand:
-                    B = sorted(bCand,
-                               key=lambda x: dist(x.center, A.center))[-1]
-                    if dist(A.center, B.center) < dist(lastB.center, A.center):
-                        B = lastB
-                        break
-                else:
-                    break
-
-            scaleA = scale(A.center, data)
-            scaleB = scale(B.center, data)
-            midPt = [(scaleA[i] + scaleB[i]) / 2 for i in range(2)]
-            name = printWord(culture.name).capitalize()
-            fSize = int(dist(scaleA, scaleB) / len(name)) + 16
-            font = ('Times New Roman', fSize)
-            canvas.create_text(midPt,
-                               font=font,
-                               text=name)
-
-    def drawCultures(self, canvas, data):
-        # Draw the culture name over the geographical centers
-        queue = [self.centerCity]
-        painted = set()
-        searched = set()
-        while len(queue) > 0:
-            target = queue.pop()
-            if target not in searched:
-                searched.add(target)
-                if target not in painted:
-                    self.drawCulture(target, searched, canvas, data)
-                for n in target.neighbors:
-                    if n not in searched:
-                        queue.append(n)
-                    if n.maxCulture == target.maxCulture:
-                        painted.add(n)
-
     def draw(self, canvas, data):
         self.drawCitiesBG(canvas, data)
 
@@ -201,7 +146,8 @@ class Map:
             canvas.create_line(sRiver,
                                fill=rgbToColor(DARK_OCEAN),
                                smooth=True,
-                               width=2 * data.zoom)
+                               width=2 * data.zoom,
+                               tag='map')
 
         # Highlighting active province
         if data.activeCity:
@@ -210,9 +156,7 @@ class Map:
             canvas.create_polygon(sVertices,
                                   fill='',
                                   outline=rgbToColor(HIGHLIGHT),
-                                  width=1.5 * data.zoom)
+                                  width=1.5 * data.zoom,
+                                  tag='map')
 
         self.drawCities(canvas, data)
-
-        # if data.drawMode == 5:
-        #     self.drawCultures(canvas, data)

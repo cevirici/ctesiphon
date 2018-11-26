@@ -6,15 +6,14 @@
 
 
 class War:
+    wars = set()
+
     def __init__(self, wargoal):
         self.attackers = []
         self.defenders = []
         self.belligerents = []
         self.warGoal = wargoal
         self.warscore = 0
+        self.initialStates = {}
 
-    def tick(self):
-        if self.warGoal.polity in self.attackers:
-            self.warscore += 1
-        if self.warGoal.polity in self.defenders:
-            self.warscore -= 1
+        War.wars.add(self)

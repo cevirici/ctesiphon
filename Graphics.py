@@ -17,11 +17,18 @@ HIGHLIGHT = (235, 248, 95)
 DRY_COLOR = (242, 244, 114)
 COLD_COLOR = (99, 235, 255)
 HOT_COLOR = (242, 56, 56)
+HUD_WOOD = (196, 136, 42)
+WOOD_DARK = (128, 90, 30)
+WOOD_DARKER = (102, 71, 22)
+HUD_GREY = (152, 152, 152)
 
 LOADING_FONT = ('Garamond', 36)
 HUD_FONT = ('Consolas', 16)
 
 BORDER = 15
+VIEW_SIZE = [901, 900]
+MAP_POS = [26, 32]
+MAP_BOUNDS = [MAP_POS[i] + VIEW_SIZE[i] for i in range(2)]
 ZOOM_FACTOR = 1.5
 
 # --- End Constants ---
@@ -29,13 +36,13 @@ ZOOM_FACTOR = 1.5
 
 def scale(point, data):
     # Returns the view coordinates of a given points
-    return [(point[i] - data.viewPos[i]) * data.zoom + data.mapPos[i]
+    return [(point[i] - data.viewPos[i]) * data.zoom + MAP_POS[i]
             for i in range(2)]
 
 
 def rgbToColor(rgb):
     # Converts a tuple containing RGB values to a color string
-    return "#{:0>2x}{:0>2x}{:0>2x}".format(*rgb)
+    return "#{:0>2x}{:0>2x}{:0>2x}".format(*[int(x) for x in rgb])
 
 
 def mixColors(rgb_1, rgb_2, factor):
@@ -90,20 +97,37 @@ def scroll(data, margin, x, y):
     scrolled = False
     if 0 < x < data.viewSize[0] and 0 < y < data.viewSize[1]:
         if 0 < x < margin:
-            data.viewPos[0] -= (margin - x) / ZOOM_FACTOR / data.zoom
+            if data.scrolling >= data.scrollBuffer:
+                data.viewPos[0] -= (margin - x) / ZOOM_FACTOR / data.zoom
+            else:
+                data.scrolling += 1
             scrolled = True
+
         elif data.viewSize[0] > x > data.viewSize[0] - margin:
-            data.viewPos[0] += (x - data.viewSize[0] + margin) / \
-                ZOOM_FACTOR / data.zoom
+            if data.scrolling >= data.scrollBuffer:
+                data.viewPos[0] += (x - data.viewSize[0] + margin) / \
+                    ZOOM_FACTOR / data.zoom
+            else:
+                data.scrolling += 1
             scrolled = True
 
         if 0 < y < margin:
-            data.viewPos[1] -= (margin - y) / ZOOM_FACTOR / data.zoom
+            if data.scrolling >= data.scrollBuffer:
+                data.viewPos[1] -= (margin - y) / ZOOM_FACTOR / data.zoom
+            else:
+                data.scrolling += 1
             scrolled = True
+
         elif data.viewSize[1] > y > data.viewSize[1] - margin:
-            data.viewPos[1] += (y - data.viewSize[1] + margin) / \
-                ZOOM_FACTOR / data.zoom
+            if data.scrolling >= data.scrollBuffer:
+                data.viewPos[1] += (y - data.viewSize[1] + margin) / \
+                    ZOOM_FACTOR / data.zoom
+            else:
+                data.scrolling += 1
             scrolled = True
+
+    if not scrolled:
+        data.scrolling = max(0, data.scrollBuffer - 2)
 
     limitView(data)
     recheckCenter(data)

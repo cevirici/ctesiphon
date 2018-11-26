@@ -45,6 +45,9 @@ class Polity:
 
         Polity.polities.append(self)
 
+    def __hash__(self):
+        return hash(self.capital)
+
     def superLiege(self):
         # Finds the ultimate ruler of this polity
         head = self
@@ -176,6 +179,7 @@ class Polity:
         else:
             war.defenders.append(self)
         war.belligerents.append(self)
+        war.initialStates[self] = self.weightedPop
         self.wars.add(war)
 
     def generalMobilize(self):
@@ -193,12 +197,31 @@ class Polity:
             self.relations[target] = amount
         self.relations[target] = min(1, max(-1, self.relations[target]))
 
+    def declareWar(self, goal, enemy):
+        # Check if already at war
+        for activeWar in self.wars:
+            if enemy in activeWar.belligerents:
+                return
+        newWar = War(goal)
+        self.joinWar(newWar, 0)
+        for subject in self.subjects:
+            subject.requestedJoinWar(newWar, 0, self)
+
+        enemy.joinWar(newWar, 1)
+        for subject in enemy.subjects:
+            subject.requestedJoinWar(newWar, 1, enemy)
+
     def independence(self):
         # Declare independence from liege if stronger
         if self.liege:
-            if self.liege.weightedPop < 2 * self.weightedPop:
+            if self.liege.armyCount() < 2 * self.armyCount():
+                self.liege.subjects.discard(self)
+                self.liege.declareWar(self.capital, self)
                 self.liege = None
-                liege.subjects.discard(self)
+
+    def subjectDefected(self, subject, enemy):
+        if self.armyCount() > 0.8 * enemy.armyCount():
+            self.declareWar(subject.capital, enemy)
 
     def requestedMobilization(self, target, requester):
         # Mobilize if requested
@@ -214,34 +237,30 @@ class Polity:
             if requester == self.liege:
                 self.joinWar(war, side)
                 for subject in self.subjects:
-                    subject.requestedJoinWar(newWar, side, self)
+                    subject.requestedJoinWar(war, side, self)
 
     def demandedTerritory(self, target, demander):
         # Count comparative strength
         if self.armyCount() > 0.8 * demander.armyCount():
-            # Check if already at war
-            for activeWar in self.wars:
-                if demander in activeWar.belligerents:
-                    return
-            newWar = War(target)
-            self.joinWar(newWar, 1)
-            for subject in self.subjects:
-                subject.requestedJoinWar(newWar, 1, self)
-
-            demander.joinWar(newWar, 0)
-            for subject in demander.subjects:
-                subject.requestedJoinWar(newWar, 0, demander)
+            demander.declareWar(target, self)
         else:
             if target != self.capital:
                 self.territories.discard(target)
-                self.shiftRelations(target, -0.8)
+                self.shiftRelations(demander, -0.8)
                 demander.territories.add(target)
                 target.polity = demander
             else:
                 if self.liege:
-                    self.liege.subjects.remove(self)
-                self.liege = demander
-                demander.subjects.add(self)
+                    if self.liege.armyCount() < 0.8 * demander.armyCount():
+                        self.liege.subjects.remove(self)
+                        self.liege.subjectDefected(self, demander)
+                        self.liege = demander
+                        demander.subjects.add(self)
+                    else:
+                        self.shiftRelations(demander, -0.8)
+                else:
+                    self.liege = demander
+                    demander.subjects.add(self)
 
     def tick(self):
         actions = [self.expand, self.develop, self.research]
@@ -258,6 +277,7 @@ class Polity:
         self.generalMobilize()
         if not self.wars:
             self.moveArmiesToCapital()
+        self.independence()
 
         for army in self.armies:
             army.move()

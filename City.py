@@ -90,7 +90,7 @@ class City:
         altitudeFactor = 1 - abs(self.altitude - culture.idealAltitude)
         tempFactor = 1 - abs(self.temp - culture.idealTemp)
         farmFactor = 0.5 + (self.fertility - 0.5) * culture['AGRI']
-        coastFactor = self.wetness if self.coastal else (1 - self.wetness)
+        coastFactor = 0.5 + self.wetness * (culture.coastal - 0.5)
         return altitudeFactor * tempFactor * farmFactor * coastFactor
 
     def value(self, culture):
@@ -100,7 +100,7 @@ class City:
         tempFactor = 1 - abs(self.temp - culture.idealTemp)
         farmFactor = self.fertility * culture['AGRI']
         forestFactor = -max(0.5, abs(self.vegetation))
-        coastFactor = self.wetness if self.coastal else (1 - self.wetness)
+        coastFactor = 0.5 + self.wetness * (culture.coastal - 0.5)
         return altitudeFactor + tempFactor + farmFactor + \
             forestFactor + coastFactor
 
@@ -462,7 +462,8 @@ class City:
             color = mixColors((255, 80, 80), (0, 255, 0), factor)
         canvas.create_polygon(sVertices,
                               fill=rgbToColor(color),
-                              outline='')
+                              outline='',
+                              tag='map')
 
     def drawDecorations(self, canvas, data):
         if self.cityLevel > 0:
@@ -474,7 +475,7 @@ class City:
                              [self.center[0] + circleR,
                               self.center[1] - 5 + circleR]]
                 circlepts = [scale(pt, data) for pt in circlepts]
-                canvas.create_oval(circlepts, outline=color)
+                canvas.create_oval(circlepts, outline=color, tag='map')
 
         n = len(self.armies) + 1
         i = 0
@@ -489,4 +490,5 @@ class City:
             armyPts = [scale(pt, data) for pt in armyPts]
             canvas.create_rectangle(armyPts,
                                     outline='white',
-                                    fill=rgbToColor(army.owner.color))
+                                    fill=rgbToColor(army.owner.color),
+                                    tag='map')

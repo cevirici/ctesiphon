@@ -53,7 +53,7 @@ class Culture:
 
         self.idealTemp = origin.temp
         self.idealAltitude = origin.altitude
-        self.coastal = origin.coastal
+        self.coastal = 1 if origin.coastal else 0
 
         self.traits = {}
 
