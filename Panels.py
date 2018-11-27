@@ -11,22 +11,39 @@ from tkinter import *
 
 
 class Panel:
-    def __init__(self, tag, onDraw, onClick, bounds):
+    def __init__(self, tag, onDraw, onClick, onScroll, bounds):
         self.tag = tag
         self.onDraw = onDraw
         self.onClick = onClick
+        self.onScroll = onScroll
         self.bounds = bounds
 
     def __hash__(self):
         return hash(self.tag)
 
+    def __repr__(self):
+        return self.tag
+
     def draw(self, canvas, data):
         self.onDraw(canvas, data)
 
-    def click(self, coords, data):
-        self.onClick(coords, data)
-        return self.bounds[0][0] <= coords[0] <= self.bounds[1][0] and \
-            self.bounds[0][1] <= coords[1] <= self.bounds[1][1]
+    def inBounds(self, x, y):
+        return self.bounds[0][0] <= x <= self.bounds[1][0] and \
+            self.bounds[0][1] <= y <= self.bounds[1][1]
+
+    def click(self, coords, data, held):
+        if self.inBounds(*coords):
+            self.onClick(coords, data, held)
+            return True
+        else:
+            return False
+
+    def scroll(self, coords, data, factor):
+        if self.inBounds(*coords):
+            self.onScroll(coords, data, factor)
+            return True
+        else:
+            return False
 
     def wipe(self, canvas):
         canvas.delete(self.tag)
@@ -38,18 +55,33 @@ class Panel:
 # --- Loading Panel ---
 
 
+def newBrick(canvas, data, index):
+    # Call this outside the normal redraw flow - faster
+    brickSize = [80, 50]
+    rowNum = VIEW_SIZE[0] // brickSize[0] + 1
+    y = MAP_BOUNDS[1] - (index // rowNum) * brickSize[1]
+    x = MAP_POS[0] + (index % rowNum - 0.5) * brickSize[0]
+    if (index // rowNum % 2) == 1:
+        x += brickSize[0] / 2
+    canvas.create_image(x, y, anchor=SW, image=data.brick, tag='bricks')
+
+
 def drawLoad(canvas, data):
-    canvas.create_rectangle(MAP_POS, MAP_BOUNDS, outline='', tag='load',
-                            fill=rgbToColor(HUD_WOOD))
-    canvas.create_text([400, 400], text=data.loadingMessage,
+    # Draw some bricks
+    textPos = [MAP_POS[0] + VIEW_SIZE[0] / 2, MAP_POS[1] + 30]
+    canvas.create_text(textPos, text=data.loadingMessage,
                        font=LOADING_FONT, tag='load')
 
 
-def clickLoad(coords, data):
+def clickLoad(coords, data, held):
     pass
 
 
-loadPanel = Panel('load', drawLoad, clickLoad, [[0, 0], [0, 0]])
+def noScroll(coords, data, factor):
+    pass
+
+
+loadPanel = Panel('load', drawLoad, clickLoad, noScroll, [[0, 0], [0, 0]])
 
 
 # --- Map Display ---
@@ -62,7 +94,7 @@ def drawMap(canvas, data):
     data.map.draw(canvas, data)
 
 
-def clickMap(coords, data):
+def clickMap(coords, data, held):
     x = coords[0] - MAP_POS[0]
     y = coords[1] - MAP_POS[1]
     if 0 < x < VIEW_SIZE[0] and 0 < y < VIEW_SIZE[1]:
@@ -71,9 +103,17 @@ def clickMap(coords, data):
         closest = data.map.findClosestCity(clickPoint, data)
         if closest:
             data.activeCity = closest
-            if cityPanel in data.panels:
-                data.panels.remove(cityPanel)
-            data.panels.append(cityPanel)
+            # If in culture mode, swap to culture
+            if culturePanel in data.panels:
+                if data.activeCity.maxCulture:
+                    data.activeCulture = data.activeCity.maxCulture
+                else:
+                    data.panels.remove(culturePanel)
+                    data.panels.append(cityPanel)
+            else:
+                if cityPanel in data.panels:
+                    data.panels.remove(cityPanel)
+                data.panels.append(cityPanel)
         else:
             data.activeCity = None
             data.panels = [mapPanel, hudPanel]
@@ -81,7 +121,11 @@ def clickMap(coords, data):
     mapPanel.redraw(data.canvas, data)
 
 
-mapPanel = Panel('map', drawMap, clickMap, [MAP_POS, MAP_BOUNDS])
+def scrollMap(coords, data, factor):
+    zoom(data, factor / 120, coords[0], coords[1])
+
+
+mapPanel = Panel('map', drawMap, clickMap, scrollMap, [MAP_POS, MAP_BOUNDS])
 
 
 # --- HUD Background ---
@@ -121,7 +165,7 @@ def drawHud(canvas, data):
                         tag='HUD')
 
 
-def clickHud(coords, data):
+def clickHud(coords, data, held):
     positions = [[980 + (i % 5) * 50,
                   140 + (i // 5) * 40] for i in range(len(data.buttons))]
     size = [20, 15]
@@ -137,16 +181,17 @@ def clickHud(coords, data):
             clicked = True
 
     # Pause buttons
-    if coords[0] > data.width - 50 and coords[1] < 50:
-        data.paused = not data.paused
-        clicked = True
+    if not held:
+        if coords[0] > data.width - 50 and coords[1] < 50:
+            data.paused = not data.paused
+            clicked = True
 
-    if not clicked:
-        data.activeCity = None
-        data.panels = [mapPanel, hudPanel]
+        if not clicked and hudPanel.inBounds(coords[0], coords[1]):
+            data.activeCity = None
+            data.panels = [mapPanel, hudPanel]
 
 
-hudPanel = Panel('HUD', drawHud, clickHud, [[980, 140], [1200, 195]])
+hudPanel = Panel('HUD', drawHud, clickHud, noScroll, [[980, 140], [1200, 195]])
 
 
 # --- City Display ---
@@ -251,7 +296,7 @@ def drawCityInfo(canvas, data):
                        tag='city')
 
 
-def cityClick(coords, data):
+def cityClick(coords, data, held):
     popPos = [953, 340]
     popWidth = 250
     lineHeight = 24
@@ -272,7 +317,8 @@ def cityClick(coords, data):
             data.panels.append(culturePanel)
 
 
-cityPanel = Panel('city', drawCityInfo, cityClick, [[936, 221], [1256, 821]])
+cityPanel = Panel('city', drawCityInfo, cityClick, noScroll,
+                  [[936, 221], [1256, 821]])
 
 
 # --- Culture Display ---
@@ -280,7 +326,7 @@ cityPanel = Panel('city', drawCityInfo, cityClick, [[936, 221], [1256, 821]])
 
 def drawSlider(canvas, position, fillness, tag):
     # Sizes are constant
-    sliderWidth = 250
+    sliderWidth = 220
     sliderHeight = 20
     radius = sliderHeight / 2
     startX = position[0]
@@ -322,7 +368,7 @@ def drawSlider(canvas, position, fillness, tag):
                        startY + margin,
                        barX + radius - margin,
                        startY + sliderHeight - margin,
-                       fill=rgbToColor(WOOD_DARK), outline='',
+                       fill=rgbToColor(WOOD_DARKER), outline='',
                        tag=tag)
 
 
@@ -349,49 +395,119 @@ def cultureDraw(canvas, data):
         quantities.append((ac.traits[trait] - trait.range[0]) /
                           (trait.range[1] - trait.range[0]))
 
-    canvas.create_rectangle(936, 221, 1256, 821, outline='',
-                            fill=rgbToColor(HUD_WOOD), tag='culture')
+    # Background
+    bgPos = [1096, 521]
+    canvas.create_image(bgPos,
+                        image=data.cultureImage,
+                        tag='culture')
+
     for i in range(len(data.cultureIcons)):
-        position = (980, 300 + i * 60)
-        canvas.create_image(position, image=data.cultureIcons[i],
-                            tag='culture')
-        drawSlider(canvas, (position[0] + 35, position[1] - 10),
-                   quantities[i], 'culture')
+        position = (980, 300 + i * 60 - culturePanel.scrollPos[0])
+        # check if position is inbounds
+        if 260 < position[1] < 450:
+            canvas.create_image(position, image=data.cultureIcons[i],
+                                tag='culture')
+            drawSlider(canvas, (position[0] + 35, position[1] - 10),
+                       quantities[i], 'culture')
+
+    # Supercultures and Subcultures
+    superPos = [955, 535]
+    subPos = [955, 630]
+    position = superPos
+    for culture in ac.superCultures:
+        canvas.create_text(position,
+                           justify='left', anchor=W,
+                           fill='white', font=HUD_FONT,
+                           text=printWord(culture.name).capitalize(),
+                           tag='culture')
+        position[1] += 24
+
+    subCultures = []
+    for cList in ac.subCultures.values():
+        for culture in cList:
+            subCultures.append(culture)
+    subCultures.sort()
+
+    culturePanel.scrollPos[1] = max(0, min(culturePanel.scrollPos[1],
+                                           len(subCultures) - 7))
+    index = culturePanel.scrollPos[1]
+
+    position = subPos
+    for culture in subCultures[index: index + 6]:
+        canvas.create_text(position,
+                           justify='left', anchor=W,
+                           fill='white', font=HUD_FONT,
+                           text=printWord(culture.name).capitalize(),
+                           tag='culture')
+        position[1] += 24
 
 
-def cultureClick(coords, data):
+def cultureClick(coords, data, held):
     ac = data.activeCulture
-    sliderWidth = 220
+    sliderWidth = 180
     sliderHeight = 40
     for i in range(len(data.cultureIcons)):
-        position = (1035, 290 + i * 60)
+        position = (990, 290 + i * 60 - culturePanel.scrollPos[0])
         bounds = [position[0] + sliderWidth, position[1] + sliderHeight]
-        if position[0] < coords[0] < bounds[0] and \
-                position[1] < coords[1] < bounds[1]:
-            value = (coords[0] - position[0]) / sliderWidth
+        # check if position is inbounds
+        superPos = 523
+        subPos = 618
+        lineHeight = 24
 
-            # Massive if statement to set the correct value
-            if i == 0:
-                ac.idealTemp = value
-            elif i == 1:
-                ac.idealAltitude = value
-            elif i == 2:
-                ac.coastal = value
-            elif i in range(3, 11):
-                # Traits
-                traits = [Culture.AGRICULTURALIST, Culture.BIRTHRATE,
-                          Culture.MIGRATORY,
-                          Culture.EXPLORATIVE, Culture.HARDINESS,
-                          Culture.TOLERANT, Culture.INNOVATION,
-                          Culture.MILITANCE]
-                trait = traits[i - 3]
-                scaledValue = trait.range[0] + \
-                    value * (trait.range[1] - trait.range[0])
-                ac.traits[trait] = scaledValue
+        if 260 < position[1] < 470:
+            if position[0] < coords[0] < bounds[0] and \
+                    position[1] < coords[1] < bounds[1]:
+                value = (coords[0] - position[0]) / sliderWidth
 
-            culturePanel.redraw(data.canvas, data)
-            break
+                # Massive if statement to set the correct value
+                if i == 0:
+                    ac.idealTemp = value
+                elif i == 1:
+                    ac.idealAltitude = value
+                elif i == 2:
+                    ac.coastal = value
+                elif i in range(3, 11):
+                    # Traits
+                    traits = [Culture.AGRICULTURALIST, Culture.BIRTHRATE,
+                              Culture.MIGRATORY,
+                              Culture.EXPLORATIVE, Culture.HARDINESS,
+                              Culture.TOLERANT, Culture.INNOVATION,
+                              Culture.MILITANCE]
+                    trait = traits[i - 3]
+                    scaledValue = trait.range[0] + \
+                        value * (trait.range[1] - trait.range[0])
+                    ac.traits[trait] = scaledValue
+
+                culturePanel.redraw(data.canvas, data)
+                break
+        # Supercultures
+        elif superPos < coords[1] < superPos + 75:
+            lineNum = (coords[1] - superPos) // lineHeight
+            if lineNum < len(ac.superCultures):
+                data.activeCulture = list(ac.superCultures)[lineNum]
+        elif subPos < coords[1] < subPos + 145:
+            lineNum = (coords[1] - subPos) // lineHeight
+            lineNum += culturePanel.scrollPos[1]
+            subCultures = []
+            for cList in ac.subCultures.values():
+                for culture in cList:
+                    subCultures.append(culture)
+            subCultures.sort()
+
+            if lineNum < len(subCultures):
+                data.activeCulture = subCultures[lineNum]
 
 
-culturePanel = Panel('culture', cultureDraw, cultureClick,
+def scrollCulture(coords, data, factor):
+    if 260 < coords[1] < 470:
+        culturePanel.scrollPos[0] -= factor / 2
+        culturePanel.scrollPos[0] = max(0, min(480, culturePanel.scrollPos[0]))
+        culturePanel.redraw(data.canvas, data)
+    elif coords[1] > 630:
+        culturePanel.scrollPos[1] += 1 if factor > 0 else -1
+        culturePanel.scrollPos[1] = max(0, culturePanel.scrollPos[1])
+
+
+culturePanel = Panel('culture', cultureDraw, cultureClick, scrollCulture,
                      [[900, 221], [1280, 960]])
+culturePanel.scrollPos = [0, 0]

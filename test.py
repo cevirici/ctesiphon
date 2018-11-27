@@ -6,11 +6,13 @@ from random import *
 from Panels import *
 from PIL import ImageTk
 
-MAP_SIZE = 800
+MAP_SIZE = 4000
 
 
 def loadImages(data):
     # Preload images into data
+    data.brick = ImageTk.PhotoImage(file='img\\brick.png')
+
     buttonimages = ['button-terrain.png',
                     'button-water.png',
                     'button-temp.png',
@@ -23,6 +25,7 @@ def loadImages(data):
     for i in range(len(buttonimages)):
         data.buttons.append(ImageTk.PhotoImage(file='img\\' + buttonimages[i]))
     data.sidebarImage = ImageTk.PhotoImage(file='img\\cityHud.png')
+    data.cultureImage = ImageTk.PhotoImage(file='img\\cultureHud.png')
 
     data.hudTop = ImageTk.PhotoImage(file='img\\interfaceTop.png')
     data.hudLeft = ImageTk.PhotoImage(file='img\\interfaceLeft.png')
@@ -30,15 +33,17 @@ def loadImages(data):
     data.hudRight = ImageTk.PhotoImage(file='img\\interfaceRight.png')
     data.pauseButton = ImageTk.PhotoImage(file='img\\button-pause.png')
 
-    cultureIcons = ['culture-temp.png', 'culture-altitude.png',
-                    'culture-coastal.png', 'culture-temp.png',
-                    'culture-temp.png',
-                    'culture-temp.png',
-                    'culture-temp.png',
-                    'culture-temp.png',
-                    'culture-temp.png',
-                    'culture-temp.png',
-                    'culture-temp.png']
+    cultureIcons = ['culture-temp.png',
+                    'culture-altitude.png',
+                    'culture-coastal.png',
+                    'culture-agri.png',
+                    'culture-births.png',
+                    'culture-migratory.png',
+                    'culture-explorative.png',
+                    'culture-adaptible.png',
+                    'culture-tolerant.png',
+                    'culture-innovative.png',
+                    'culture-militant.png']
     data.cultureIcons = []
     for i in range(len(cultureIcons)):
         data.cultureIcons.append(ImageTk.PhotoImage(file='img\\' +
@@ -52,7 +57,7 @@ def keyPressed(event, data):
             data.drawMode = 0
     elif event.keysym == 'l':
         data.map.update(data)
-    elif event.keysym == 'p':
+    elif event.keysym == 'space':
         data.paused = not data.paused
     elif event.keysym == 'n':
         data.tickRate -= 2
@@ -70,10 +75,10 @@ def keyPressed(event, data):
                 print(printWord(polity.name).capitalize(), end=', ')
 
 
-def mousePressed(coords, data):
+def mousePressed(coords, data, held=True):
     # Bubble click events in reverse order
     for panel in data.panels[::-1]:
-        if panel.click(coords, data):
+        if panel.click(coords, data, held):
             return
 
 
@@ -82,10 +87,10 @@ def mouseReleased(event, data):
 
 
 def mouseWheel(event, data):
-    # Handle zooming
-    # The amount to zoom by
-    factor = event.delta / 120
-    zoom(data, factor, event.x, event.y)
+    # Bubble scroll events in reverse order too
+    for panel in data.panels[::-1]:
+        if panel.scroll([event.x, event.y], data, event.delta):
+            return
 
 
 def removePanel(canvas, data, panel):
@@ -142,27 +147,46 @@ def timerFired(canvas, data):
 
 
 def makeMap(canvas, data):
+    stepAmount = MAP_SIZE // 8
+
+    def mapStep():
+        # Advances the map a certain amount, and draws a new brick
+        for step in range(stepAmount):
+            data.map.step()
+        newBrick(canvas, data, data.bricks)
+        data.bricks += 1
+        redrawPanel(canvas, data, loadPanel)
+        redrawPanel(canvas, data, hudPanel)
+        canvas.update()
+
     data.points = [(random() * data.mapSize[0], random() * data.mapSize[1])
                    for i in range(MAP_SIZE)]
     data.map = Mapmaker(data.points, data.mapSize[0], data.mapSize[1])
     data.viewPos = [100, 100]
     data.zoom = 3.3
+    data.bricks = 0
+    # Loading background
+    canvas.create_rectangle(MAP_POS, MAP_BOUNDS, outline='',
+                            fill=rgbToColor(HUD_WOOD))
     redrawAll(canvas, data)
 
     for i in range(4):
-        data.map.fullParse()
-        data.loadingMessage = 'Applying Reduction {}'.format(i + 1)
-        redrawAll(canvas, data)
+        while not data.map.done:
+            mapStep()
+        data.loadingMessage = choice(data.messages)
         data.map.reduce()
 
-    data.map.fullParse()
-    redrawAll(canvas, data)
+    data.loadingMessage = choice(data.messages)
+    while not data.map.done:
+        mapStep()
 
     data.oldMap = data.map
     data.map = Map(data.map, data)
     initializeTerrain(data.map)
     data.map.spawnCultures()
 
+    canvas.delete('bricks')
+    redrawAll(canvas, data)
     removePanel(canvas, data, loadPanel)
     data.panels.insert(0, mapPanel)
     redrawAll(canvas, data)
@@ -175,16 +199,33 @@ def init(canvas, data):
     data.tickRate = 10
     data.scrollBuffer = 8
     data.scrolling = 0
-    data.paused = False
+    data.paused = True
     data.clicking = False
 
     data.panels = [loadPanel, hudPanel]
     data.activeCity = None
 
-    data.mapSize = [MAP_SIZE, MAP_SIZE]
+    data.mapSize = [MAP_SIZE ** 0.5 * 20, MAP_SIZE ** 0.5 * 20]
     data.viewSize = VIEW_SIZE
 
-    data.loadingMessage = 'Generating Initial Map'
+    data.messages = ['Ironing Laundry',
+                     '... Carthago Delando Est',
+                     'Loading... Unless You\'re the Mongols',
+                     'Not a Loading Message Placeholder',
+                     'Laying Bricks',
+                     'Installing Drivers',
+                     'Uninstalling Drivers',
+                     'Reticulating Splines',
+                     'Calculating Antiderivatives',
+                     'Pull the Lever, Kronk!',
+                     'Salting the Earth',
+                     'Invading Australia',
+                     'Invading Madagascar',
+                     'To the Batmobile!',
+                     'Worrying about Deadlines',
+                     'Burning Bridges',
+                     'Running Out of Loading Messages']
+    data.loadingMessage = choice(data.messages)
     data.drawMode = 5
 
     loadImages(data)
@@ -199,7 +240,7 @@ def setup(data):
 
     def mousePressedWrapper(event, data):
         data.clicking = True
-        mousePressed([event.x, event.y], data)
+        mousePressed([event.x, event.y], data, False)
         redrawAll(data.canvas, data)
 
     def mouseWheelWrapper(event, data):

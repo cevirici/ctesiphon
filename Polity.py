@@ -150,7 +150,7 @@ class Polity:
 
     def develop(self):
         # Develop in each territory in the polity based on influence
-        for city in self.territories:
+        for city in [self.capital]:
             city.progress += city.builders * 20 * (1 - city.vegetation) *\
                 self.culture['INNOV']
 

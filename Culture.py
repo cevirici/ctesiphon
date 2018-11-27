@@ -65,6 +65,7 @@ class Culture:
             self.traits[trait] = trait.randomize()
 
         self.subCultures = {}
+        self.superCultures = set()
 
         Culture.cultures.add(self)
 
@@ -144,6 +145,7 @@ class Culture:
             self.subCultures[self].append(child)
         else:
             self.subCultures[self] = [child]
+        child.superCultures = {self}
         return child
 
     def merge(self, other, origin):
@@ -167,6 +169,7 @@ class Culture:
         else:
             self.subCultures[other] = [child]
             other.subCultures[self] = [child]
+        child.superCultures = {self, other}
         return child
 
     def reform(self, origin):
