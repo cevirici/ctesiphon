@@ -21,6 +21,7 @@ HUD_WOOD = (196, 136, 42)
 WOOD_DARK = (128, 90, 30)
 WOOD_DARKER = (102, 71, 22)
 HUD_GREY = (152, 152, 152)
+MENU_COLOR = (0, 0, 0)
 
 LOADING_FONT = ('Garamond', 36)
 HUD_FONT = ('Consolas', 16)

@@ -6,8 +6,12 @@
 
 from Culture import *
 from Language import *
+from Map import *
+from Voronoi import *
 from Graphics import *
 from tkinter import *
+
+MAP_SIZE = 800
 
 
 class Panel:
@@ -52,6 +56,141 @@ class Panel:
         self.wipe(canvas)
         self.draw(canvas, data)
 
+
+def removePanel(canvas, data, panel):
+    # Remove a panel and wipe it
+    panel.wipe(canvas)
+    data.panels.remove(panel)
+
+
+def redrawPanel(canvas, data, panel):
+    panel.redraw(canvas, data)
+    canvas.update()
+
+
+def redrawNotMap(canvas, data):
+    for panel in data.panels:
+        if panel != mapPanel:
+            panel.redraw(canvas, data)
+    canvas.update()
+
+
+def redrawAll(canvas, data):
+    for panel in data.panels:
+        panel.redraw(canvas, data)
+    canvas.update()
+
+
+def noClick(coords, data, held):
+    pass
+
+
+def noScroll(coords, data, factor):
+    pass
+
+# --- Preloader ---
+
+
+def drawPreloader(canvas, data):
+    canvas.create_rectangle(0, 0, data.width, data.height,
+                            outline='', fill=rgbToColor(MENU_COLOR),
+                            tag='preloader')
+    textPos = [data.width / 2, data.height / 2]
+    canvas.create_text(textPos, text='Loading, please wait...',
+                       font=LOADING_FONT, tag='preloader',
+                       fill='white')
+
+
+preloaderPanel = Panel('preloader', drawPreloader, noClick, noScroll,
+                       [[0, 0], [1280, 960]])
+
+# --- Main Menu ---
+
+
+def drawMenu(canvas, data):
+    canvas.create_rectangle(0, 0, data.width, data.height,
+                            outline='', fill=rgbToColor(MENU_COLOR),
+                            tag='menu')
+    # Background
+    canvas.create_image(data.width, data.height + data.offset, anchor=SE,
+                        image=data.globeImages[data.globeFrame],
+                        tag='menu')
+    # Logo
+    canvas.create_image(data.width / 2, - data.offset / 2, anchor=N,
+                        image=data.logo,
+                        tag='menu')
+
+    if data.offset <= 20:
+        canvas.create_image(data.width / 2, 450,
+                            image=data.menuStart,
+                            tag='menu')
+    if data.offset == 0:
+        canvas.create_image(data.width / 2, 650,
+                            image=data.menuLoad,
+                            tag='menu')
+
+
+def makeMap(canvas, data):
+    stepAmount = MAP_SIZE // 8
+
+    def mapStep():
+        # Advances the map a certain amount, and draws a new brick
+        for step in range(stepAmount):
+            data.map.step()
+        newBrick(canvas, data, data.bricks)
+        data.bricks += 1
+        redrawPanel(canvas, data, loadPanel)
+        redrawPanel(canvas, data, hudPanel)
+        canvas.update()
+
+    data.points = [(random() * data.mapSize[0], random() * data.mapSize[1])
+                   for i in range(MAP_SIZE)]
+    data.map = Mapmaker(data.points, data.mapSize[0], data.mapSize[1])
+    data.viewPos = [100, 100]
+    data.zoom = 3.3
+    data.bricks = 0
+    # Loading background
+    canvas.create_rectangle(MAP_POS, MAP_BOUNDS, outline='',
+                            fill=rgbToColor(HUD_WOOD), tag='load')
+    menuPanel.wipe(canvas)
+    data.panels = [loadPanel, hudPanel]
+    redrawAll(canvas, data)
+
+    for i in range(4):
+        while not data.map.done:
+            mapStep()
+        data.loadingMessage = choice(data.messages)
+        data.map.reduce()
+
+    data.loadingMessage = choice(data.messages)
+    while not data.map.done:
+        mapStep()
+
+    data.oldMap = data.map
+    data.map = Map(data.map, data)
+    initializeTerrain(data.map)
+    data.map.spawnCultures()
+
+    canvas.delete('bricks')
+    redrawAll(canvas, data)
+    removePanel(canvas, data, loadPanel)
+    data.panels.insert(0, mapPanel)
+    redrawAll(canvas, data)
+    data.ticks = -1
+
+
+def clickMenu(coords, data, held):
+    if data.offset == 0:
+        # New Game
+        if 490 <= coords[0] <= 790 and \
+                398 <= coords[1] <= 562:
+            makeMap(data.canvas, data)
+
+
+menuPanel = Panel('menu', drawMenu, clickMenu, noScroll,
+                  [[0, 0], [1280, 960]])
+
+
 # --- Loading Panel ---
 
 
@@ -67,17 +206,12 @@ def newBrick(canvas, data, index):
 
 
 def drawLoad(canvas, data):
-    # Draw some bricks
     textPos = [MAP_POS[0] + VIEW_SIZE[0] / 2, MAP_POS[1] + 30]
     canvas.create_text(textPos, text=data.loadingMessage,
                        font=LOADING_FONT, tag='load')
 
 
 def clickLoad(coords, data, held):
-    pass
-
-
-def noScroll(coords, data, factor):
     pass
 
 

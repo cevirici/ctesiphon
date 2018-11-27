@@ -57,8 +57,8 @@ class City:
 
         self.john = False
 
-    def __hash__(self):
-        return hash(self.center)
+    # def __hash__(self):
+    #     return hash(self.center)
 
     def __repr__(self):
         return self.name

@@ -1,16 +1,30 @@
+# Import everything necessary for pickling
+
 from tkinter import *
-from Voronoi import *
-from Map import *
+from Culture import *
 from Terrain import *
 from random import *
 from Panels import *
 from PIL import ImageTk
+from sys import setrecursionlimit
+from SaveLoad import Loader
+import pickle
 
-MAP_SIZE = 4000
+
+setrecursionlimit(30000)
 
 
 def loadImages(data):
     # Preload images into data
+    data.globeImages = []
+    for i in range(200):
+        filePath = 'img\\globe\\{:0>4}.png'.format(i + 1)
+        data.globeImages.append(ImageTk.PhotoImage(file=filePath))
+
+    data.logo = ImageTk.PhotoImage(file='img\\logo.png')
+    data.menuStart = ImageTk.PhotoImage(file='img\\menu-start.png')
+    data.menuLoad = ImageTk.PhotoImage(file='img\\menu-load.png')
+
     data.brick = ImageTk.PhotoImage(file='img\\brick.png')
 
     buttonimages = ['button-terrain.png',
@@ -51,12 +65,16 @@ def loadImages(data):
 
 
 def keyPressed(event, data):
-    if event.keysym == 'k':
-        data.drawMode += 1
-        if data.drawMode == 8:
-            data.drawMode = 0
+    global Culture, Polity
+    if event.keysym == 's':
+        f = open('savefiles/savegame', 'wb')
+        saveData = [data.map, Culture, Polity]
+        pickle.dump(saveData, f)
+        f.close()
     elif event.keysym == 'l':
-        data.map.update(data)
+        f = open('savefiles/savegame', 'rb')
+        data.map, Culture, Polity = Loader(f).load()
+        f.close()
     elif event.keysym == 'space':
         data.paused = not data.paused
     elif event.keysym == 'n':
@@ -93,108 +111,48 @@ def mouseWheel(event, data):
             return
 
 
-def removePanel(canvas, data, panel):
-    # Remove a panel and wipe it
-    panel.wipe(canvas)
-    data.panels.remove(panel)
-
-
-def redrawPanel(canvas, data, panel):
-    panel.redraw(canvas, data)
-    canvas.update()
-
-
-def redrawNotMap(canvas, data):
-    for panel in data.panels:
-        if panel != mapPanel:
-            panel.redraw(canvas, data)
-    canvas.update()
-
-
-def redrawAll(canvas, data):
-    for panel in data.panels:
-        panel.redraw(canvas, data)
-    canvas.update()
-
-
 def timerFired(canvas, data):
-    # Handle scrolling
-    updateMap = False
-    SCROLL_MARGINS = 250
-    x = data.root.winfo_pointerx() - data.root.winfo_rootx() - MAP_POS[0]
-    y = data.root.winfo_pointery() - data.root.winfo_rooty() - MAP_POS[1]
-    if scroll(data, SCROLL_MARGINS, x, y):
-        updateMap = True
-    if not data.paused:
-        data.ticks += 1
-        if data.ticks == data.tickRate:
-            data.ticks = 0
-            if isinstance(data.map, Map):
-                data.map.update(data)
-                updateMap = True
+    # Check if we're on the main menu
+    if menuPanel in data.panels:
+        if data.offset > 0:
+            if data.offset > 100:
+                data.offset -= 6
+            data.offset -= 2
+        data.globeFrame = (data.globeFrame + 1) % 200
+        redrawAll(canvas, data)
+    elif mapPanel in data.panels:
+        # Handle scrolling
+        updateMap = False
+        SCROLL_MARGINS = 250
+        x = data.root.winfo_pointerx() - data.root.winfo_rootx() - MAP_POS[0]
+        y = data.root.winfo_pointery() - data.root.winfo_rooty() - MAP_POS[1]
+        if scroll(data, SCROLL_MARGINS, x, y):
+            updateMap = True
+        if not data.paused:
+            data.ticks += 1
+            if data.ticks == data.tickRate:
+                data.ticks = 0
+                if isinstance(data.map, Map):
+                    data.map.update(data)
+                    updateMap = True
 
-    if updateMap:
-        # Not calling redrawPanel here, because we should only update canvas
-        # once
-        mapPanel.redraw(canvas, data)
+        if updateMap:
+            # Not calling redrawPanel here, because we should only update
+            # canvas once
+            mapPanel.redraw(canvas, data)
 
-    if data.clicking:
-        mousePressed([data.root.winfo_pointerx() - data.root.winfo_rootx(),
-                      data.root.winfo_pointery() - data.root.winfo_rooty()],
-                     data)
+        if data.clicking:
+            mousePressed([data.root.winfo_pointerx() - data.root.winfo_rootx(),
+                          data.root.winfo_pointery() - data.root.winfo_rooty()
+                          ],
+                         data)
 
-    redrawNotMap(canvas, data)
-
-
-def makeMap(canvas, data):
-    stepAmount = MAP_SIZE // 8
-
-    def mapStep():
-        # Advances the map a certain amount, and draws a new brick
-        for step in range(stepAmount):
-            data.map.step()
-        newBrick(canvas, data, data.bricks)
-        data.bricks += 1
-        redrawPanel(canvas, data, loadPanel)
-        redrawPanel(canvas, data, hudPanel)
-        canvas.update()
-
-    data.points = [(random() * data.mapSize[0], random() * data.mapSize[1])
-                   for i in range(MAP_SIZE)]
-    data.map = Mapmaker(data.points, data.mapSize[0], data.mapSize[1])
-    data.viewPos = [100, 100]
-    data.zoom = 3.3
-    data.bricks = 0
-    # Loading background
-    canvas.create_rectangle(MAP_POS, MAP_BOUNDS, outline='',
-                            fill=rgbToColor(HUD_WOOD))
-    redrawAll(canvas, data)
-
-    for i in range(4):
-        while not data.map.done:
-            mapStep()
-        data.loadingMessage = choice(data.messages)
-        data.map.reduce()
-
-    data.loadingMessage = choice(data.messages)
-    while not data.map.done:
-        mapStep()
-
-    data.oldMap = data.map
-    data.map = Map(data.map, data)
-    initializeTerrain(data.map)
-    data.map.spawnCultures()
-
-    canvas.delete('bricks')
-    redrawAll(canvas, data)
-    removePanel(canvas, data, loadPanel)
-    data.panels.insert(0, mapPanel)
-    redrawAll(canvas, data)
-    data.ticks = -1
+        redrawNotMap(canvas, data)
 
 
 def init(canvas, data):
     data.timerDelay = 10
+    data.globeFrame = 0
     data.ticks = 0
     data.tickRate = 10
     data.scrollBuffer = 8
@@ -202,7 +160,7 @@ def init(canvas, data):
     data.paused = True
     data.clicking = False
 
-    data.panels = [loadPanel, hudPanel]
+    data.panels = [preloaderPanel]
     data.activeCity = None
 
     data.mapSize = [MAP_SIZE ** 0.5 * 20, MAP_SIZE ** 0.5 * 20]
@@ -224,13 +182,16 @@ def init(canvas, data):
                      'To the Batmobile!',
                      'Worrying about Deadlines',
                      'Burning Bridges',
-                     'Running Out of Loading Messages']
+                     'Running Out of Loading Messages',
+                     'Making Mexico Pay for This']
     data.loadingMessage = choice(data.messages)
+    data.offset = 800
     data.drawMode = 5
 
+    redrawAll(canvas, data)
+    preloaderPanel.wipe(canvas)
+    data.panels = [menuPanel]
     loadImages(data)
-
-    makeMap(canvas, data)
 
 
 def setup(data):
@@ -253,7 +214,8 @@ def setup(data):
     data.root = Tk()
     data.root.resizable(width=False, height=False)  # prevents resizing window
 
-    data.canvas = Canvas(data.root, width=windowSize[0], height=windowSize[1])
+    data.canvas = Canvas(data.root, width=windowSize[0], height=windowSize[1],
+                         bg=rgbToColor(WOOD_DARK))
     data.canvas.configure(bd=0, highlightthickness=0)
     data.canvas.pack()
     # create the root and the canvas
