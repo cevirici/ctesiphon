@@ -21,6 +21,22 @@ class Building:
         self.onDestroy(city)
 
 
+# Descriptions
+descriptions = ['Increases capacity and farming efficiency \
+somewhat',
+                'Increases capacity somewhat',
+                'Increases builder population',
+                'Allows for storage of supplies',
+                'Increases capacity and farming efficiency',
+                'Increases builder population',
+                'Increases capacity moderately',
+                'Increases storage and capacity significantly',
+                'Allows for garrisoning. Creates a city state.',
+                'Increases capacity',
+                'Increases garrison size',
+                'Is a giant robot']
+
+
 # Building list
 
 buildings = []
@@ -173,3 +189,7 @@ def robotDestroy(city):
 
 
 buildings.append(Building('Giant Robot', 10000000, robotAction, robotDestroy))
+
+
+for i in range(len(buildings)):
+    buildings[i].description = descriptions[i]

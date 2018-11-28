@@ -23,8 +23,9 @@ WOOD_DARKER = (102, 71, 22)
 HUD_GREY = (152, 152, 152)
 MENU_COLOR = (0, 0, 0)
 
-LOADING_FONT = ('Garamond', 36)
+LOADING_FONT = ('Bahnschrift', 36)
 HUD_FONT = ('Consolas', 16)
+HUD_FONT_SMALL = ('Consolas', 11)
 
 BORDER = 15
 VIEW_SIZE = [901, 900]

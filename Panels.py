@@ -10,8 +10,8 @@ from Map import *
 from Voronoi import *
 from Graphics import *
 from tkinter import *
-
-MAP_SIZE = 800
+import pickle
+import os
 
 
 class Panel:
@@ -76,6 +76,7 @@ def redrawNotMap(canvas, data):
 
 
 def redrawAll(canvas, data):
+    canvas.delete(ALL)
     for panel in data.panels:
         panel.redraw(canvas, data)
     canvas.update()
@@ -131,7 +132,7 @@ def drawMenu(canvas, data):
 
 
 def makeMap(canvas, data):
-    stepAmount = MAP_SIZE // 8
+    stepAmount = data.cityCount // 8
 
     def mapStep():
         # Advances the map a certain amount, and draws a new brick
@@ -144,7 +145,7 @@ def makeMap(canvas, data):
         canvas.update()
 
     data.points = [(random() * data.mapSize[0], random() * data.mapSize[1])
-                   for i in range(MAP_SIZE)]
+                   for i in range(data.cityCount)]
     data.map = Mapmaker(data.points, data.mapSize[0], data.mapSize[1])
     data.viewPos = [100, 100]
     data.zoom = 3.3
@@ -184,12 +185,173 @@ def clickMenu(coords, data, held):
         # New Game
         if 490 <= coords[0] <= 790 and \
                 398 <= coords[1] <= 562:
-            makeMap(data.canvas, data)
+            menuPanel.wipe(data.canvas)
+            data.panels = [newGamePanel]
+            redrawAll(data.canvas, data)
+
+        # Load Game
+        if 490 <= coords[0] <= 790 and \
+                550 <= coords[1] <= 762:
+            data.panels.append(loadMenuPanel)
+            redrawAll(data.canvas, data)
 
 
 menuPanel = Panel('menu', drawMenu, clickMenu, noScroll,
                   [[0, 0], [1280, 960]])
 
+
+# --- Load Menu ---
+
+
+def loadGame(canvas, data, saveGame):
+    f = open('savefiles/' + saveGame, 'rb')
+    data.map, Culture, Polity, Building = pickle.load(f)
+    f.close()
+
+    data.viewPos = [100, 100]
+    data.zoom = 3.3
+
+    for panel in data.panels:
+        panel.wipe(canvas)
+    data.panels = [mapPanel, hudPanel]
+    redrawAll(canvas, data)
+    data.ticks = -1
+
+
+def drawLoadMenu(canvas, data):
+    canvas.create_rectangle(400, 320, 860, 800,
+                            fill=rgbToColor(HUD_WOOD),
+                            outline=rgbToColor(WOOD_DARKER),
+                            width=8, tag='loadMenu')
+    position = [410, 350]
+    data.savegames = os.listdir('savefiles')
+    for file in data.savegames:
+        color = 'white'
+        if data.saveName == file:
+            canvas.create_rectangle(400, position[1] - 12,
+                                    860, position[1] + 12,
+                                    fill=rgbToColor(HIGHLIGHT), tag='loadMenu',
+                                    outline='')
+            color = 'black'
+        canvas.create_text(position,
+                           fill=color, font=HUD_FONT,
+                           anchor=W, justify='left',
+                           text=file, tag='loadMenu')
+        position[1] += 24
+
+    canvas.create_image(420, 880,
+                        image=data.menuBase,
+                        tag='loadMenu')
+    canvas.create_text(420, 880, fill='white',
+                       font=LOADING_FONT, text='Back',
+                       tag='loadMenu')
+
+    canvas.create_image(860, 880,
+                        image=data.menuBase,
+                        tag='loadMenu')
+    canvas.create_text(860, 880, fill='white',
+                       justify='center',
+                       font=LOADING_FONT, text='Load\nGame',
+                       tag='loadMenu')
+
+
+def clickLoadMenu(coords, data, held):
+    if 270 <= coords[0] <= 570 and \
+            798 <= coords[1] <= 962:
+        data.panels.remove(loadMenuPanel)
+        redrawAll(data.canvas, data)
+    elif 710 <= coords[0] <= 1010 and \
+            798 <= coords[1] <= 962:
+        if data.saveName:
+            loadGame(data.canvas, data, data.saveName)
+    elif 400 <= coords[0] <= 860 and \
+            338 <= coords[1] <= 800:
+        lineNum = (coords[1] - 338) // 24
+        if lineNum >= 0 and lineNum < len(data.savegames):
+            data.saveName = data.savegames[lineNum]
+
+
+loadMenuPanel = Panel('loadMenu', drawLoadMenu, clickLoadMenu, noScroll,
+                      [[0, 0], [1280, 960]])
+
+
+# --- New Game ---
+
+
+def drawNewGame(canvas, data):
+    canvas.create_rectangle(0, 0, data.width, data.height,
+                            outline='', fill=rgbToColor(MENU_COLOR),
+                            tag='newGame')
+    # Background
+    canvas.create_image(data.width, data.height, anchor=SE,
+                        image=data.globeImages[data.globeFrame],
+                        tag='newGame')
+    # Logo
+    canvas.create_image(data.width / 2, 0, anchor=N,
+                        image=data.logo,
+                        tag='newGame')
+
+    canvas.create_image(data.width / 2, 450,
+                        image=data.menuBase,
+                        tag='newGame')
+    canvas.create_text(data.width / 2, 350, fill='white',
+                       font=HUD_FONT, text="Map Size",
+                       tag='newGame')
+    canvas.create_text(data.width / 2, 450, fill='white',
+                       font=LOADING_FONT, text=data.sizeText[data.size],
+                       tag='newGame')
+    canvas.create_image(490, 450, image=data.menuLeft,
+                        tag='newGame')
+    canvas.create_image(805, 450, image=data.menuRight,
+                        tag='newGame')
+
+    typingImage = data.menuLongActive if data.typing else data.menuLong
+    canvas.create_image(data.width / 2, 650,
+                        image=typingImage,
+                        tag='newGame')
+    canvas.create_text(data.width / 2, 550, fill='white',
+                       font=HUD_FONT, text="World Name",
+                       tag='newGame')
+    canvas.create_text(data.width / 2, 650, fill='white',
+                       font=LOADING_FONT, text=data.saveName,
+                       tag='newGame')
+
+    canvas.create_image(data.width / 2, 850,
+                        image=data.menuBase,
+                        tag='newGame')
+    canvas.create_text(data.width / 2, 850, fill='white',
+                       justify='center',
+                       font=LOADING_FONT, text='Start\nGame',
+                       tag='newGame')
+
+
+def clickNewGame(coords, data, held):
+    if 445 <= coords[0] <= 535 and \
+            380 <= coords[1] <= 523:
+        data.size = max(0, data.size - 1)
+
+    if 760 <= coords[0] <= 850 and \
+            380 <= coords[1] <= 523:
+        data.size = min(len(data.sizeNums) - 1, data.size + 1)
+
+    if 530 <= coords[0] <= 750 and \
+            620 <= coords[1] <= 680:
+        data.typing = True
+    else:
+        data.typing = False
+
+    if 550 <= coords[0] <= 730 and \
+            810 <= coords[1] <= 890:
+        if data.saveName == '':
+            data.typing = True
+        else:
+            newGamePanel.wipe(data.canvas)
+            makeMap(data.canvas, data)
+    newGamePanel.redraw(data.canvas, data)
+
+
+newGamePanel = Panel('newGame', drawNewGame, clickNewGame, noScroll,
+                     [[0, 0], [1280, 960]])
 
 # --- Loading Panel ---
 
@@ -274,8 +436,6 @@ def drawHud(canvas, data):
     canvas.create_image(data.width, data.height, anchor=SE, image=data.hudBot,
                         tag='HUD')
 
-    canvas.create_text(1220, 10, text=data.ticks, tag='HUD')
-
     # Redraw side buttons
     buttonPositions = [[980 + (i % 5) * 50,
                         140 + (i // 5) * 40] for i in range(len(data.buttons))]
@@ -297,6 +457,16 @@ def drawHud(canvas, data):
                                 tag='HUD')
     canvas.create_image(data.width, 0, image=data.pauseButton, anchor=NE,
                         tag='HUD')
+    canvas.create_image(data.width - 55, 0, image=data.speedControls,
+                        anchor=NE, tag='HUD')
+    ticks = (12 - data.tickRate) // 2
+    for i in range(ticks):
+        x = data.width - 65
+        y = 39 - i * 9
+        canvas.create_rectangle(x, y, x + 7, y + 7,
+                                fill=rgbToColor(HIGHLIGHT),
+                                outline='',
+                                tag='HUD')
 
 
 def clickHud(coords, data, held):
@@ -314,10 +484,20 @@ def clickHud(coords, data, held):
             data.drawMode = i
             clicked = True
 
-    # Pause buttons
     if not held:
+        # Pause button
         if coords[0] > data.width - 50 and coords[1] < 50:
             data.paused = not data.paused
+            clicked = True
+
+        # Speed control
+        if data.width - 75 < coords[0] < data.width - 55 and \
+                coords[1] < 50:
+            if coords[1] < 25:
+                data.tickRate -= 2
+            else:
+                data.tickRate += 2
+            data.tickRate = min(10, max(2, data.tickRate))
             clicked = True
 
         if not clicked and hudPanel.inBounds(coords[0], coords[1]):
@@ -325,7 +505,7 @@ def clickHud(coords, data, held):
             data.panels = [mapPanel, hudPanel]
 
 
-hudPanel = Panel('HUD', drawHud, clickHud, noScroll, [[980, 140], [1200, 195]])
+hudPanel = Panel('HUD', drawHud, clickHud, noScroll, [[940, 0], [1280, 195]])
 
 
 # --- City Display ---
@@ -450,6 +630,12 @@ def cityClick(coords, data, held):
                 data.panels.remove(culturePanel)
             data.panels.append(culturePanel)
 
+    if not held:
+        if 1206 <= coords[0] <= 1243 and \
+                291 <= coords[1] <= 325:
+            data.panels.append(buildingPanel)
+            redrawAll(data.canvas, data)
+
 
 cityPanel = Panel('city', drawCityInfo, cityClick, noScroll,
                   [[936, 221], [1256, 821]])
@@ -560,7 +746,7 @@ def cultureDraw(canvas, data):
     for cList in ac.subCultures.values():
         for culture in cList:
             subCultures.append(culture)
-    subCultures.sort()
+    subCultures.sort(key=lambda c: c.name)
 
     culturePanel.scrollPos[1] = max(0, min(culturePanel.scrollPos[1],
                                            len(subCultures) - 7))
@@ -581,7 +767,7 @@ def cultureClick(coords, data, held):
     sliderWidth = 180
     sliderHeight = 40
     for i in range(len(data.cultureIcons)):
-        position = (990, 290 + i * 60 - culturePanel.scrollPos[0])
+        position = (1020, 290 + i * 60 - culturePanel.scrollPos[0])
         bounds = [position[0] + sliderWidth, position[1] + sliderHeight]
         # check if position is inbounds
         superPos = 523
@@ -626,7 +812,7 @@ def cultureClick(coords, data, held):
             for cList in ac.subCultures.values():
                 for culture in cList:
                     subCultures.append(culture)
-            subCultures.sort()
+            subCultures.sort(key=lambda c: c.name)
 
             if lineNum < len(subCultures):
                 data.activeCulture = subCultures[lineNum]
@@ -645,3 +831,61 @@ def scrollCulture(coords, data, factor):
 culturePanel = Panel('culture', cultureDraw, cultureClick, scrollCulture,
                      [[900, 221], [1280, 960]])
 culturePanel.scrollPos = [0, 0]
+
+
+# --- Building Display ---
+
+def drawBuilding(canvas, data):
+    # Draw City name and Polity name
+    ac = data.activeCity
+
+    bgPos = [1096, 521]
+    provNamePos = [950, 66]
+
+    provName = printWord(ac.name).capitalize()
+    if ac.polity:
+        provNamePos = [950, 56]
+        polityPos = [950, 76]
+        polityName = printWord(ac.polity.name).capitalize()
+        canvas.create_text(polityPos, anchor=W, justify='left',
+                           text=polityName,
+                           fill='white', font=HUD_FONT,
+                           tag='building')
+    canvas.create_image(bgPos,
+                        image=data.buildingImage,
+                        tag='building')
+    canvas.create_text(provNamePos, anchor=W, justify='left',
+                       text=provName,
+                       fill='white', font=HUD_FONT,
+                       tag='building')
+
+    position = [950, 390]
+    for building in buildings:
+        if building in ac.buildings:
+            color = 'white'
+        else:
+            color = 'grey'
+        canvas.create_text(position,
+                           justify='left', anchor=W,
+                           text=building.name,
+                           font=HUD_FONT, fill=color,
+                           tag='building')
+        position[1] += 24
+        canvas.create_text(position,
+                           justify='left', anchor=W,
+                           text=building.description,
+                           font=HUD_FONT_SMALL, fill=color,
+                           tag='building')
+        position[1] += 24
+
+
+def clickBuilding(coords, data, held):
+    if not held:
+        if 1206 <= coords[0] <= 1243 and \
+                291 <= coords[1] <= 325:
+            data.panels.remove(buildingPanel)
+            redrawAll(data.canvas, data)
+
+
+buildingPanel = Panel('building', drawBuilding, clickBuilding, noScroll,
+                      [[900, 221], [1280, 960]])

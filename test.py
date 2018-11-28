@@ -8,6 +8,7 @@ from Panels import *
 from PIL import ImageTk
 from sys import setrecursionlimit
 from SaveLoad import Loader
+from string import ascii_letters
 import pickle
 
 
@@ -24,6 +25,11 @@ def loadImages(data):
     data.logo = ImageTk.PhotoImage(file='img\\logo.png')
     data.menuStart = ImageTk.PhotoImage(file='img\\menu-start.png')
     data.menuLoad = ImageTk.PhotoImage(file='img\\menu-load.png')
+    data.menuBase = ImageTk.PhotoImage(file='img\\menu-base.png')
+    data.menuLeft = ImageTk.PhotoImage(file='img\\menu-left.png')
+    data.menuRight = ImageTk.PhotoImage(file='img\\menu-right.png')
+    data.menuLong = ImageTk.PhotoImage(file='img\\menu-long.png')
+    data.menuLongActive = ImageTk.PhotoImage(file='img\\menu-longa.png')
 
     data.brick = ImageTk.PhotoImage(file='img\\brick.png')
 
@@ -40,12 +46,14 @@ def loadImages(data):
         data.buttons.append(ImageTk.PhotoImage(file='img\\' + buttonimages[i]))
     data.sidebarImage = ImageTk.PhotoImage(file='img\\cityHud.png')
     data.cultureImage = ImageTk.PhotoImage(file='img\\cultureHud.png')
+    data.buildingImage = ImageTk.PhotoImage(file='img\\buildingHud.png')
 
     data.hudTop = ImageTk.PhotoImage(file='img\\interfaceTop.png')
     data.hudLeft = ImageTk.PhotoImage(file='img\\interfaceLeft.png')
     data.hudBot = ImageTk.PhotoImage(file='img\\interfaceBot.png')
     data.hudRight = ImageTk.PhotoImage(file='img\\interfaceRight.png')
     data.pauseButton = ImageTk.PhotoImage(file='img\\button-pause.png')
+    data.speedControls = ImageTk.PhotoImage(file='img\\speed-controls.png')
 
     cultureIcons = ['culture-temp.png',
                     'culture-altitude.png',
@@ -66,31 +74,38 @@ def loadImages(data):
 
 def keyPressed(event, data):
     global Culture, Polity
-    if event.keysym == 's':
-        f = open('savefiles/savegame', 'wb')
-        saveData = [data.map, Culture, Polity]
-        pickle.dump(saveData, f)
-        f.close()
-    elif event.keysym == 'l':
-        f = open('savefiles/savegame', 'rb')
-        data.map, Culture, Polity = Loader(f).load()
-        f.close()
-    elif event.keysym == 'space':
-        data.paused = not data.paused
-    elif event.keysym == 'n':
-        data.tickRate -= 2
-        data.ticks = 0
-    elif event.keysym == 'm':
-        data.tickRate += 2
-        data.ticks = 0
-    elif event.keysym == 'x':
-        for war in War.wars:
-            print('Attackers:')
-            for polity in war.attackers:
-                print(printWord(polity.name).capitalize(), end=', ')
-            print('Defenders:')
-            for polity in war.defenders:
-                print(printWord(polity.name).capitalize(), end=', ')
+    if data.typing:
+        if event.keysym in ascii_letters:
+            data.saveName += event.keysym.lower()
+        elif event.keysym == 'BackSpace':
+            data.saveName = data.saveName[:-1]
+
+    else:
+        if event.keysym == 's':
+            f = open('savefiles/' + data.saveName, 'wb')
+            saveData = [data.map, Culture, Polity, Building]
+            pickle.dump(saveData, f)
+            f.close()
+        elif event.keysym == 'l':
+            f = open('savefiles/' + data.saveName, 'rb')
+            data.map, Culture, Polity = Loader(f).load()
+            f.close()
+        elif event.keysym == 'space':
+            data.paused = not data.paused
+        elif event.keysym == 'n':
+            data.tickRate -= 2
+            data.ticks = 0
+        elif event.keysym == 'm':
+            data.tickRate += 2
+            data.ticks = 0
+        elif event.keysym == 'x':
+            for war in War.wars:
+                print('Attackers:')
+                for polity in war.attackers:
+                    print(printWord(polity.name).capitalize(), end=', ')
+                print('Defenders:')
+                for polity in war.defenders:
+                    print(printWord(polity.name).capitalize(), end=', ')
 
 
 def mousePressed(coords, data, held=True):
@@ -113,7 +128,7 @@ def mouseWheel(event, data):
 
 def timerFired(canvas, data):
     # Check if we're on the main menu
-    if menuPanel in data.panels:
+    if menuPanel in data.panels or newGamePanel in data.panels:
         if data.offset > 0:
             if data.offset > 100:
                 data.offset -= 6
@@ -163,9 +178,6 @@ def init(canvas, data):
     data.panels = [preloaderPanel]
     data.activeCity = None
 
-    data.mapSize = [MAP_SIZE ** 0.5 * 20, MAP_SIZE ** 0.5 * 20]
-    data.viewSize = VIEW_SIZE
-
     data.messages = ['Ironing Laundry',
                      '... Carthago Delando Est',
                      'Loading... Unless You\'re the Mongols',
@@ -187,6 +199,17 @@ def init(canvas, data):
     data.loadingMessage = choice(data.messages)
     data.offset = 800
     data.drawMode = 5
+
+    data.size = 5
+    data.sizeNums = [400, 800, 1500, 2000, 3000, 4000, 5000]
+    data.sizeText = ['Super Tiny', 'Tiny', 'Small', 'Midsize',
+                     'Standard', 'Large', 'Huge']
+    data.cityCount = 800
+    data.typing = False
+    data.saveName = ''
+
+    data.mapSize = [data.cityCount ** 0.5 * 20, data.cityCount ** 0.5 * 20]
+    data.viewSize = VIEW_SIZE
 
     redrawAll(canvas, data)
     preloaderPanel.wipe(canvas)
