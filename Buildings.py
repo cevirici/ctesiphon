@@ -17,7 +17,7 @@ class Building:
     def build(self, city):
         self.onBuild(city)
 
-    def onDestroy(self, city):
+    def destroy(self, city):
         self.onDestroy(city)
 
 

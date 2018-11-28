@@ -7,9 +7,7 @@ from random import *
 from Panels import *
 from PIL import ImageTk
 from sys import setrecursionlimit
-from SaveLoad import Loader
 from string import ascii_letters
-import pickle
 
 
 setrecursionlimit(30000)
@@ -81,31 +79,26 @@ def keyPressed(event, data):
             data.saveName = data.saveName[:-1]
 
     else:
-        if event.keysym == 's':
-            f = open('savefiles/' + data.saveName, 'wb')
-            saveData = [data.map, Culture, Polity, Building]
-            pickle.dump(saveData, f)
-            f.close()
-        elif event.keysym == 'l':
-            f = open('savefiles/' + data.saveName, 'rb')
-            data.map, Culture, Polity = Loader(f).load()
-            f.close()
-        elif event.keysym == 'space':
-            data.paused = not data.paused
-        elif event.keysym == 'n':
-            data.tickRate -= 2
-            data.ticks = 0
-        elif event.keysym == 'm':
-            data.tickRate += 2
-            data.ticks = 0
-        elif event.keysym == 'x':
-            for war in War.wars:
-                print('Attackers:')
-                for polity in war.attackers:
-                    print(printWord(polity.name).capitalize(), end=', ')
-                print('Defenders:')
-                for polity in war.defenders:
-                    print(printWord(polity.name).capitalize(), end=', ')
+        if data.map:
+            if event.keysym == 'space':
+                data.paused = not data.paused
+            elif event.keysym == 'Escape':
+                if data.map:
+                    if escPanel in data.panels:
+                        data.panels.remove(escPanel)
+                        redrawAll(data.canvas, data)
+                    else:
+                        data.paused = True
+                        data.panels.append(escPanel)
+                        redrawAll(data.canvas, data)
+            elif event.keysym == 'x':
+                for war in War.wars:
+                    print('Attackers:')
+                    for polity in war.attackers:
+                        print(printWord(polity.name).capitalize(), end=', ')
+                    print('Defenders:')
+                    for polity in war.defenders:
+                        print(printWord(polity.name).capitalize(), end=', ')
 
 
 def mousePressed(coords, data, held=True):

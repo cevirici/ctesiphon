@@ -160,8 +160,11 @@ class City:
             if self.progress > self.currentBuilding.requirement:
                 self.progress -= self.currentBuilding.requirement
                 self.currentBuilding.build(self)
-                buildingLevel = buildings.index(self.currentBuilding)
-                self.currentBuilding = buildings[buildingLevel + 1]
+                self.buildings.add(self.currentBuilding)
+                for b in buildings:
+                    if b not in self.buildings:
+                        self.currentBuilding = b
+                        break
 
     # --- Migration ---
 

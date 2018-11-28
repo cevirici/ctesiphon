@@ -22,6 +22,8 @@ WOOD_DARK = (128, 90, 30)
 WOOD_DARKER = (102, 71, 22)
 HUD_GREY = (152, 152, 152)
 MENU_COLOR = (0, 0, 0)
+HUD_GREEN = (97, 232, 61)
+HUD_RED = (220, 84, 84)
 
 LOADING_FONT = ('Bahnschrift', 36)
 HUD_FONT = ('Consolas', 16)

@@ -495,8 +495,10 @@ def clickHud(coords, data, held):
                 coords[1] < 50:
             if coords[1] < 25:
                 data.tickRate -= 2
+                data.ticks = -1
             else:
                 data.tickRate += 2
+                data.ticks = -1
             data.tickRate = min(10, max(2, data.tickRate))
             clicked = True
 
@@ -634,6 +636,7 @@ def cityClick(coords, data, held):
         if 1206 <= coords[0] <= 1243 and \
                 291 <= coords[1] <= 325:
             data.panels.append(buildingPanel)
+            buildingPanel.scrollPos = 0
             redrawAll(data.canvas, data)
 
 
@@ -764,7 +767,7 @@ def cultureDraw(canvas, data):
 
 def cultureClick(coords, data, held):
     ac = data.activeCulture
-    sliderWidth = 180
+    sliderWidth = 190
     sliderHeight = 40
     for i in range(len(data.cultureIcons)):
         position = (1020, 290 + i * 60 - culturePanel.scrollPos[0])
@@ -859,33 +862,112 @@ def drawBuilding(canvas, data):
                        fill='white', font=HUD_FONT,
                        tag='building')
 
-    position = [950, 390]
+    position = [950, 390 - buildingPanel.scrollPos]
     for building in buildings:
-        if building in ac.buildings:
-            color = 'white'
-        else:
-            color = 'grey'
-        canvas.create_text(position,
-                           justify='left', anchor=W,
-                           text=building.name,
-                           font=HUD_FONT, fill=color,
-                           tag='building')
-        position[1] += 24
-        canvas.create_text(position,
-                           justify='left', anchor=W,
-                           text=building.description,
-                           font=HUD_FONT_SMALL, fill=color,
-                           tag='building')
-        position[1] += 24
+        if 360 <= position[1] <= 760:
+            if building in ac.buildings:
+                color = 'white'
+                buttonColor = rgbToColor(HUD_RED)
+            else:
+                color = 'grey'
+                buttonColor = rgbToColor(HUD_GREEN)
+            canvas.create_text(position,
+                               justify='left', anchor=W,
+                               text=building.name,
+                               font=HUD_FONT, fill=color,
+                               tag='building')
+            canvas.create_rectangle(1185, position[1] - 12,
+                                    1235, position[1] + 36,
+                                    fill=buttonColor,
+                                    tag='building')
+
+            canvas.create_text(position[0], position[1] + 24,
+                               width=245,
+                               justify='left', anchor=W,
+                               text=building.description,
+                               font=HUD_FONT_SMALL, fill=color,
+                               tag='building')
+        position[1] += 64
 
 
 def clickBuilding(coords, data, held):
+    ac = data.activeCity
     if not held:
         if 1206 <= coords[0] <= 1243 and \
                 291 <= coords[1] <= 325:
             data.panels.remove(buildingPanel)
             redrawAll(data.canvas, data)
+        elif 1185 <= coords[0] <= 1235 and \
+                360 <= coords[1] <= 760:
+            offset = coords[1] - 378 + buildingPanel.scrollPos
+            if offset % 64 < 48:
+                lineNum = int(offset // 64)
+                build = buildings[lineNum]
+                if build in ac.buildings:
+                    ac.buildings.remove(build)
+                    build.destroy(ac)
+                else:
+                    ac.buildings.add(build)
+                    build.build(ac)
+                    if build == ac.currentBuilding:
+                        for b in buildings:
+                            if b not in ac.buildings:
+                                ac.currentBuilding = b
+                                break
+                buildingPanel.redraw(data.canvas, data)
 
 
-buildingPanel = Panel('building', drawBuilding, clickBuilding, noScroll,
+def scrollBuildings(coords, data, factor):
+    if 360 < coords[1] < 760:
+        buildingPanel.scrollPos -= factor / 2.2
+        buildingPanel.scrollPos = max(0, min(480, buildingPanel.scrollPos))
+        buildingPanel.redraw(data.canvas, data)
+
+
+buildingPanel = Panel('building', drawBuilding, clickBuilding, scrollBuildings,
                       [[900, 221], [1280, 960]])
+
+
+# --- escMenu ---
+
+def drawEscMenu(canvas, data):
+    canvas.create_image(data.width / 2, 400, image=data.menuBase,
+                        tag='esc')
+    canvas.create_text(data.width / 2, 400, fill='white',
+                       font=LOADING_FONT, text="Save",
+                       tag='esc')
+    canvas.create_image(data.width / 2, 600, image=data.menuBase,
+                        tag='esc')
+    canvas.create_text(data.width / 2, 600, fill='white',
+                       font=LOADING_FONT, text="Quit",
+                       tag='esc')
+    canvas.create_image(data.width / 2, 800, image=data.menuBase,
+                        tag='esc')
+    canvas.create_text(data.width / 2, 800, fill='white',
+                       font=LOADING_FONT, text="Return",
+                       tag='esc')
+
+
+def clickEscMenu(coords, data, held):
+    if -150 < coords[0] - data.width / 2 < 150:
+        if 318 < coords[1] < 482:
+            f = open('savefiles/' + data.saveName, 'wb')
+            saveData = [data.map, Culture, Polity, Building]
+            pickle.dump(saveData, f)
+            f.close()
+        elif 518 < coords[1] < 682:
+            f = open('savefiles/' + data.saveName, 'wb')
+            saveData = [data.map, Culture, Polity, Building]
+            pickle.dump(saveData, f)
+            f.close()
+            data.map = None
+            data.offset = 800
+            data.panels = [menuPanel]
+            redrawAll(data.canvas, data)
+        elif 718 < coords[1] < 882:
+            data.panels.remove(escPanel)
+            redrawAll(data.canvas, data)
+
+
+escPanel = Panel('esc', drawEscMenu, clickEscMenu, noScroll,
+                 [[490, 318], [790, 682]])
