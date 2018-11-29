@@ -329,10 +329,12 @@ def clickNewGame(coords, data, held):
     if 445 <= coords[0] <= 535 and \
             380 <= coords[1] <= 523:
         data.size = max(0, data.size - 1)
+        data.cityCount = data.sizeNums[data.size]
 
     if 760 <= coords[0] <= 850 and \
             380 <= coords[1] <= 523:
         data.size = min(len(data.sizeNums) - 1, data.size + 1)
+        data.cityCount = data.sizeNums[data.size]
 
     if 530 <= coords[0] <= 750 and \
             620 <= coords[1] <= 680:
@@ -714,8 +716,11 @@ def cultureDraw(canvas, data):
     quantities = [ac.idealTemp,
                   ac.idealAltitude,
                   ac.coastal]
-    for trait in ac.traits:
-        quantities.append((ac.traits[trait] - trait.range[0]) /
+    for traitName in ac.traits:
+        for trait in Culture.traits:
+            if trait.formal == traitName:
+                break
+        quantities.append((ac.traits[traitName] - trait.range[0]) /
                           (trait.range[1] - trait.range[0]))
 
     # Background
@@ -799,7 +804,7 @@ def cultureClick(coords, data, held):
                     trait = traits[i - 3]
                     scaledValue = trait.range[0] + \
                         value * (trait.range[1] - trait.range[0])
-                    ac.traits[trait] = scaledValue
+                    ac.traits[trait.formal] = scaledValue
 
                 culturePanel.redraw(data.canvas, data)
                 break
@@ -827,7 +832,7 @@ def scrollCulture(coords, data, factor):
         culturePanel.scrollPos[0] = max(0, min(480, culturePanel.scrollPos[0]))
         culturePanel.redraw(data.canvas, data)
     elif coords[1] > 630:
-        culturePanel.scrollPos[1] += 1 if factor > 0 else -1
+        culturePanel.scrollPos[1] += 1 if factor < 0 else -1
         culturePanel.scrollPos[1] = max(0, culturePanel.scrollPos[1])
 
 
@@ -865,7 +870,7 @@ def drawBuilding(canvas, data):
     position = [950, 390 - buildingPanel.scrollPos]
     for building in buildings:
         if 360 <= position[1] <= 760:
-            if building in ac.buildings:
+            if building.name in ac.buildings:
                 color = 'white'
                 buttonColor = rgbToColor(HUD_RED)
             else:
@@ -882,7 +887,7 @@ def drawBuilding(canvas, data):
                                     tag='building')
 
             canvas.create_text(position[0], position[1] + 24,
-                               width=245,
+                               width=240,
                                justify='left', anchor=W,
                                text=building.description,
                                font=HUD_FONT_SMALL, fill=color,
@@ -904,10 +909,10 @@ def clickBuilding(coords, data, held):
                 lineNum = int(offset // 64)
                 build = buildings[lineNum]
                 if build in ac.buildings:
-                    ac.buildings.remove(build)
+                    ac.buildings.remove(build.name)
                     build.destroy(ac)
                 else:
-                    ac.buildings.add(build)
+                    ac.buildings.add(build.name)
                     build.build(ac)
                     if build == ac.currentBuilding:
                         for b in buildings:

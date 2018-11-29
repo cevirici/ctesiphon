@@ -43,6 +43,8 @@ class Culture:
     TOLERANT = Trait('Tolerant', 'TOLERANCE', 0.6, 1, 0.05)
     INNOVATION = Trait('Innovative', 'INNOV', 0.4, 1, 0.1)
     MILITANCE = Trait('Militant', 'MILITANCE', 0.05, 0.65, 0.05)
+    traits = [AGRICULTURALIST, BIRTHRATE, MIGRATORY, EXPLORATIVE,
+              HARDINESS, TOLERANT, INNOVATION, MILITANCE]
 
     def __init__(self, origin, lang=None, subLanguages=None):
         self.origin = origin
@@ -57,12 +59,12 @@ class Culture:
 
         self.traits = {}
 
-        self.traits[Culture.AGRICULTURALIST] = origin.fertility
+        self.traits['AGRI'] = origin.fertility
         for trait in [Culture.BIRTHRATE, Culture.MIGRATORY,
                       Culture.EXPLORATIVE, Culture.HARDINESS,
                       Culture.TOLERANT, Culture.INNOVATION,
                       Culture.MILITANCE]:
-            self.traits[trait] = trait.randomize()
+            self.traits[trait.formal] = trait.randomize()
 
         self.subCultures = {}
         self.superCultures = set()
@@ -73,14 +75,10 @@ class Culture:
         return printWord(self.name).capitalize()
 
     def __getitem__(self, item):
-        for trait in self.traits:
-            if trait.formal == item:
-                return self.traits[trait]
+        return self.traits[item]
 
     def __setitem__(self, item, value):
-        for trait in self.traits:
-            if trait.formal == item:
-                self.traits[trait] = value
+        self.traits[item] = value
 
     def isAncestor(self, other):
         # Checks if 'other' is a descendant of this culture
@@ -101,8 +99,11 @@ class Culture:
         for i in range(3):
             child.color[i] = min(255, max(0, child.color[i]))
 
-        for trait in self.traits:
-            child.traits[trait] = trait.jiggle(self.traits[trait])
+        for traitName in self.traits:
+            for trait in Culture.traits:
+                if trait.formal == traitName:
+                    break
+            child.traits[traitName] = trait.jiggle(self.traits[traitName])
 
         # Come up with possible names
         prefixes = ['OF', 'ORIGIN']
@@ -155,11 +156,14 @@ class Culture:
         for i in range(3):
             child.color[i] = min(255, max(0, child.color[i]))
 
-        for trait in self.traits:
-            child.traits[trait] = (self.traits[trait] +
-                                   other.traits[trait]) / 2
+        for traitName in self.traits:
+            for trait in Culture.traits:
+                if trait.formal == traitName:
+                    break
+            child.traits[traitName] = (self.traits[traitName] +
+                                       other.traits[traitName]) / 2
             child['TOLERANCE'] += random() * 0.1
-            child.traits[trait] = trait.jiggle(child.traits[trait])
+            child.traits[traitName] = trait.jiggle(child.traits[traitName])
 
         child.name = mergeWords(self.name, other.name)
 

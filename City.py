@@ -160,9 +160,9 @@ class City:
             if self.progress > self.currentBuilding.requirement:
                 self.progress -= self.currentBuilding.requirement
                 self.currentBuilding.build(self)
-                self.buildings.add(self.currentBuilding)
+                self.buildings.add(self.currentBuilding.name)
                 for b in buildings:
-                    if b not in self.buildings:
+                    if b.name not in self.buildings:
                         self.currentBuilding = b
                         break
 
@@ -470,15 +470,9 @@ class City:
 
     def drawDecorations(self, canvas, data):
         if self.cityLevel > 0:
-            circleR = self.cityLevel
-            color = 'black'
-            if circleR >= 1:
-                circlepts = [[self.center[0] - circleR,
-                              self.center[1] - 5 - circleR],
-                             [self.center[0] + circleR,
-                              self.center[1] - 5 + circleR]]
-                circlepts = [scale(pt, data) for pt in circlepts]
-                canvas.create_oval(circlepts, outline=color, tag='map')
+            sprite = data.cityIcons[self.cityLevel - 1]
+            canvas.create_image(scale(self.center, data),
+                                image=sprite, tag='map')
 
         n = len(self.armies) + 1
         i = 0

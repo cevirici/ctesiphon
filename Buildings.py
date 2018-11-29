@@ -153,7 +153,7 @@ def build7Destroy(city):
     city.builderMax /= 1.5
 
 
-buildings.append(Building('Fort', 400, build7Action, build7Destroy))
+buildings.append(Building('Fort', 4000, build7Action, build7Destroy))
 
 
 def housingAction(city):

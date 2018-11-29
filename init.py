@@ -69,6 +69,12 @@ def loadImages(data):
         data.cultureIcons.append(ImageTk.PhotoImage(file='img\\' +
                                                     cultureIcons[i]))
 
+    cityIcons = ['cityLevel-a.png', 'cityLevel-b.png']
+    data.cityIcons = []
+    for i in range(len(cityIcons)):
+        data.cityIcons.append(ImageTk.PhotoImage(file='img\\' +
+                                                 cityIcons[i]))
+
 
 def keyPressed(event, data):
     global Culture, Polity
@@ -91,6 +97,10 @@ def keyPressed(event, data):
                         data.paused = True
                         data.panels.append(escPanel)
                         redrawAll(data.canvas, data)
+            elif event.keysym == 'v':
+                print(data.activeCity.buildings)
+            elif event.keysym == 'w':
+                print(buildings)
             elif event.keysym == 'x':
                 for war in War.wars:
                     print('Attackers:')
@@ -197,7 +207,7 @@ def init(canvas, data):
     data.sizeNums = [400, 800, 1500, 2000, 3000, 4000, 5000]
     data.sizeText = ['Super Tiny', 'Tiny', 'Small', 'Midsize',
                      'Standard', 'Large', 'Huge']
-    data.cityCount = 800
+    data.cityCount = 4000
     data.typing = False
     data.saveName = ''
 
