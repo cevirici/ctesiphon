@@ -15,11 +15,12 @@ import os
 
 
 class Panel:
-    def __init__(self, tag, onDraw, onClick, onScroll, bounds):
+    def __init__(self, tag, onDraw, onClick, onScroll, onHover, bounds):
         self.tag = tag
         self.onDraw = onDraw
         self.onClick = onClick
         self.onScroll = onScroll
+        self.onHover = onHover
         self.bounds = bounds
 
     def __hash__(self):
@@ -45,6 +46,13 @@ class Panel:
     def scroll(self, coords, data, factor):
         if self.inBounds(*coords):
             self.onScroll(coords, data, factor)
+            return True
+        else:
+            return False
+
+    def hover(self, coords, data):
+        if self.inBounds(*coords):
+            self.onHover(coords, data)
             return True
         else:
             return False
@@ -89,6 +97,10 @@ def noClick(coords, data, held):
 def noScroll(coords, data, factor):
     pass
 
+
+def noHover(coords, data):
+    pass
+
 # --- Preloader ---
 
 
@@ -102,7 +114,7 @@ def drawPreloader(canvas, data):
                        fill='white')
 
 
-preloaderPanel = Panel('preloader', drawPreloader, noClick, noScroll,
+preloaderPanel = Panel('preloader', drawPreloader, noClick, noScroll, noHover,
                        [[0, 0], [1280, 960]])
 
 # --- Main Menu ---
@@ -196,7 +208,7 @@ def clickMenu(coords, data, held):
             redrawAll(data.canvas, data)
 
 
-menuPanel = Panel('menu', drawMenu, clickMenu, noScroll,
+menuPanel = Panel('menu', drawMenu, clickMenu, noScroll, noHover,
                   [[0, 0], [1280, 960]])
 
 
@@ -272,7 +284,7 @@ def clickLoadMenu(coords, data, held):
 
 
 loadMenuPanel = Panel('loadMenu', drawLoadMenu, clickLoadMenu, noScroll,
-                      [[0, 0], [1280, 960]])
+                      noHover, [[0, 0], [1280, 960]])
 
 
 # --- New Game ---
@@ -352,7 +364,7 @@ def clickNewGame(coords, data, held):
     newGamePanel.redraw(data.canvas, data)
 
 
-newGamePanel = Panel('newGame', drawNewGame, clickNewGame, noScroll,
+newGamePanel = Panel('newGame', drawNewGame, clickNewGame, noScroll, noHover,
                      [[0, 0], [1280, 960]])
 
 # --- Loading Panel ---
@@ -379,7 +391,8 @@ def clickLoad(coords, data, held):
     pass
 
 
-loadPanel = Panel('load', drawLoad, clickLoad, noScroll, [[0, 0], [0, 0]])
+loadPanel = Panel('load', drawLoad, clickLoad, noScroll, noHover,
+                  [[0, 0], [0, 0]])
 
 
 # --- Map Display ---
@@ -423,7 +436,32 @@ def scrollMap(coords, data, factor):
     zoom(data, factor / 120, coords[0], coords[1])
 
 
-mapPanel = Panel('map', drawMap, clickMap, scrollMap, [MAP_POS, MAP_BOUNDS])
+def hoverMap(coords, data):
+    shiftedCoords = [coords[i] - MAP_POS[i] for i in range(2)]
+    if scroll(data, *shiftedCoords):
+        mapPanel.redraw(data.canvas, data)
+
+    clickPoint = [shiftedCoords[0] / data.zoom + data.viewPos[0],
+                  shiftedCoords[1] / data.zoom + data.viewPos[1]]
+    closest = data.map.findClosestCity(clickPoint, data)
+    if closest:
+        data.toolTipPos = scale(closest.center, data)
+        data.toolTipBox = [scale(closest.center, data) for i in range(2)]
+        data.toolTipBox[0][0] -= 80
+        data.toolTipBox[0][1] -= 15
+        data.toolTipBox[1][0] += 80
+        data.toolTipBox[1][1] += 15
+        data.toolTipText = closest.getToolTip(data)
+        if toolTipPanel not in data.panels:
+            data.panels.append(toolTipPanel)
+        return
+
+    if toolTipPanel in data.panels:
+        data.panels.remove(toolTipPanel)
+
+
+mapPanel = Panel('map', drawMap, clickMap, scrollMap, hoverMap,
+                 [MAP_POS, MAP_BOUNDS])
 
 
 # --- HUD Background ---
@@ -509,7 +547,38 @@ def clickHud(coords, data, held):
             data.panels = [mapPanel, hudPanel]
 
 
-hudPanel = Panel('HUD', drawHud, clickHud, noScroll, [[940, 0], [1280, 195]])
+def hudHover(coords, data):
+    positions = [[980 + (i % 5) * 50,
+                  140 + (i // 5) * 40] for i in range(len(data.buttons))]
+    size = [20, 15]
+
+    labels = ['Terrain',
+              'Hydration',
+              'Temperature',
+              'Fertility',
+              'Vegetation',
+              'Cultures',
+              'Polities',
+              'Population']
+    for i in range(len(positions)):
+        if positions[i][0] - size[0] <= coords[0] <= \
+                positions[i][0] + size[0] and \
+                positions[i][1] - size[1] <= coords[1] <= \
+                positions[i][1] + size[1]:
+            data.toolTipPos = [1080, positions[i][1] + 30]
+            data.toolTipBox = [1030, positions[i][1] + 15,
+                               1130, positions[i][1] + 45]
+            data.toolTipText = labels[i]
+            if toolTipPanel not in data.panels:
+                data.panels.append(toolTipPanel)
+            return
+
+    if toolTipPanel in data.panels:
+        data.panels.remove(toolTipPanel)
+
+
+hudPanel = Panel('HUD', drawHud, clickHud, noScroll, hudHover,
+                 [[940, 0], [1280, 195]])
 
 
 # --- City Display ---
@@ -639,10 +708,80 @@ def cityClick(coords, data, held):
                 291 <= coords[1] <= 325:
             data.panels.append(buildingPanel)
             buildingPanel.scrollPos = 0
+            if toolTipPanel in data.panels:
+                data.panels.remove(toolTipPanel)
             redrawAll(data.canvas, data)
 
 
-cityPanel = Panel('city', drawCityInfo, cityClick, noScroll,
+def hoverCity(coords, data):
+    if 1206 <= coords[0] <= 1243 and \
+            291 <= coords[1] <= 325:
+        data.toolTipPos = [1225, 350]
+        data.toolTipBox = [1180, 335, 1270, 365]
+        data.toolTipText = 'Buildings'
+        if toolTipPanel not in data.panels:
+            data.panels.append(toolTipPanel)
+        return
+
+    elif 1000 <= coords[0] <= 1250 and \
+            530 <= coords[1] <= 590:
+        data.toolTipPos = [1100, 575]
+        data.toolTipBox = [1050, 560, 1150, 590]
+        data.toolTipText = 'Fertility'
+        if toolTipPanel not in data.panels:
+            data.panels.append(toolTipPanel)
+        return
+
+    elif 1000 <= coords[0] <= 1250 and \
+            585 <= coords[1] <= 645:
+        data.toolTipPos = [1100, 630]
+        data.toolTipBox = [1050, 615, 1150, 645]
+        data.toolTipText = 'Temperature'
+        if toolTipPanel not in data.panels:
+            data.panels.append(toolTipPanel)
+        return
+
+    elif 1000 <= coords[0] <= 1250 and \
+            640 <= coords[1] <= 700:
+        data.toolTipPos = [1100, 685]
+        data.toolTipBox = [1025, 670, 1175, 700]
+        data.toolTipText = 'Building Progress'
+        if toolTipPanel not in data.panels:
+            data.panels.append(toolTipPanel)
+        return
+
+    elif 1022 <= coords[0] <= 1072 and \
+            740 <= coords[1] <= 790:
+        data.toolTipPos = [1047, 765]
+        data.toolTipBox = [1010, 750, 1084, 780]
+        data.toolTipText = 'Builders'
+        if toolTipPanel not in data.panels:
+            data.panels.append(toolTipPanel)
+        return
+
+    elif 1022 <= coords[0] <= 1072 and \
+            790 <= coords[1] <= 840:
+        data.toolTipPos = [1047, 815]
+        data.toolTipBox = [1010, 800, 1084, 830]
+        data.toolTipText = 'Garrison'
+        if toolTipPanel not in data.panels:
+            data.panels.append(toolTipPanel)
+        return
+
+    elif 1189 <= coords[0] <= 1239 and \
+            740 <= coords[1] <= 790:
+        data.toolTipPos = [1206, 765]
+        data.toolTipBox = [1168, 750, 1241, 780]
+        data.toolTipText = 'Supplies'
+        if toolTipPanel not in data.panels:
+            data.panels.append(toolTipPanel)
+        return
+
+    if toolTipPanel in data.panels:
+        data.panels.remove(toolTipPanel)
+
+
+cityPanel = Panel('city', drawCityInfo, cityClick, noScroll, hoverCity,
                   [[936, 221], [1256, 821]])
 
 
@@ -836,8 +975,38 @@ def scrollCulture(coords, data, factor):
         culturePanel.scrollPos[1] = max(0, culturePanel.scrollPos[1])
 
 
+def hoverCulture(coords, data):
+    labels = ['Ideal Temperature',
+              'Mountaineering',
+              'Coastal',
+              'Agriculturalists',
+              'Birth Rate',
+              'Nomadic',
+              'Explorers',
+              'Adaptible',
+              'Tolerant',
+              'Innovative',
+              'Militant']
+    for i in range(len(data.cultureIcons)):
+        position = (1020, 290 + i * 60 - culturePanel.scrollPos[0])
+
+        if 260 < position[1] < 470:
+            if position[0] <= coords[0] <= position[0] + 250 and \
+                    position[1] - 25 <= coords[1] <= position[1] + 25:
+                data.toolTipPos = [position[0] + 80, position[1] + 40]
+                data.toolTipBox = [position[0], position[1] + 25,
+                                   position[0] + 160, position[1] + 55]
+                data.toolTipText = labels[i]
+                if toolTipPanel not in data.panels:
+                    data.panels.append(toolTipPanel)
+                return
+
+    if toolTipPanel in data.panels:
+        data.panels.remove(toolTipPanel)
+
+
 culturePanel = Panel('culture', cultureDraw, cultureClick, scrollCulture,
-                     [[900, 221], [1280, 960]])
+                     hoverCulture, [[900, 221], [1280, 960]])
 culturePanel.scrollPos = [0, 0]
 
 
@@ -872,19 +1041,28 @@ def drawBuilding(canvas, data):
         if 360 <= position[1] <= 760:
             if building.name in ac.buildings:
                 color = 'white'
+                buttonText = 'Del'
+                labelColor = 'white'
                 buttonColor = rgbToColor(HUD_RED)
             else:
                 color = 'grey'
+                buttonText = 'Build'
+                labelColor = 'black'
                 buttonColor = rgbToColor(HUD_GREEN)
             canvas.create_text(position,
                                justify='left', anchor=W,
                                text=building.name,
                                font=HUD_FONT, fill=color,
                                tag='building')
-            canvas.create_rectangle(1185, position[1] - 12,
-                                    1235, position[1] + 36,
+            canvas.create_rectangle(1185, position[1] - 4,
+                                    1235, position[1] + 28,
                                     fill=buttonColor,
                                     tag='building')
+
+            canvas.create_text(1210, position[1] + 12,
+                               text=buttonText,
+                               font=HUD_FONT_SMALL, fill=labelColor,
+                               tag='building')
 
             canvas.create_text(position[0], position[1] + 24,
                                width=240,
@@ -908,7 +1086,7 @@ def clickBuilding(coords, data, held):
             if offset % 64 < 48:
                 lineNum = int(offset // 64)
                 build = buildings[lineNum]
-                if build in ac.buildings:
+                if build.name in ac.buildings:
                     ac.buildings.remove(build.name)
                     build.destroy(ac)
                 else:
@@ -930,7 +1108,7 @@ def scrollBuildings(coords, data, factor):
 
 
 buildingPanel = Panel('building', drawBuilding, clickBuilding, scrollBuildings,
-                      [[900, 221], [1280, 960]])
+                      noHover, [[900, 221], [1280, 960]])
 
 
 # --- escMenu ---
@@ -974,5 +1152,25 @@ def clickEscMenu(coords, data, held):
             redrawAll(data.canvas, data)
 
 
-escPanel = Panel('esc', drawEscMenu, clickEscMenu, noScroll,
+escPanel = Panel('esc', drawEscMenu, clickEscMenu, noScroll, noHover,
                  [[490, 318], [790, 682]])
+
+
+# --- Tooltips ---
+
+def drawToolTip(canvas, data):
+    canvas.create_rectangle(data.toolTipBox,
+                            fill=rgbToColor(TOOLTIP_BG),
+                            outline=rgbToColor(TOOLTIP_BORDER),
+                            width=1,
+                            tag='tooltip')
+
+    canvas.create_text(data.toolTipPos,
+                       text=data.toolTipText,
+                       fill='white',
+                       font=HUD_FONT_SMALL,
+                       tag='tooltip')
+
+
+toolTipPanel = Panel('tooltip', drawToolTip, noClick, noScroll, noHover,
+                     [[0, 0], [0, 0]])

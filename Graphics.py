@@ -24,6 +24,8 @@ HUD_GREY = (152, 152, 152)
 MENU_COLOR = (0, 0, 0)
 HUD_GREEN = (97, 232, 61)
 HUD_RED = (220, 84, 84)
+TOOLTIP_BG = (12, 12, 12)
+TOOLTIP_BORDER = (68, 73, 12)
 
 LOADING_FONT = ('Bahnschrift', 36)
 HUD_FONT = ('Consolas', 16)
@@ -34,6 +36,7 @@ VIEW_SIZE = [901, 900]
 MAP_POS = [26, 32]
 MAP_BOUNDS = [MAP_POS[i] + VIEW_SIZE[i] for i in range(2)]
 ZOOM_FACTOR = 1.5
+SCROLL_MARGINS = 250
 
 # --- End Constants ---
 
@@ -97,7 +100,8 @@ def zoom(data, factor, x, y):
     recheckCenter(data)
 
 
-def scroll(data, margin, x, y):
+def scroll(data, x, y):
+    margin = SCROLL_MARGINS
     scrolled = False
     if 0 < x < data.viewSize[0] and 0 < y < data.viewSize[1]:
         if 0 < x < margin:

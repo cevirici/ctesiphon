@@ -75,6 +75,18 @@ def loadImages(data):
         data.cityIcons.append(ImageTk.PhotoImage(file='img\\' +
                                                  cityIcons[i]))
 
+    fireIcons = ['fire.png', 'fireb.png']
+    data.fireIcons = []
+    for i in range(len(fireIcons)):
+        data.fireIcons.append(ImageTk.PhotoImage(file='img\\' +
+                                                 fireIcons[i]))
+
+    hurricaneIcons = ['hurricanea.png', 'hurricaneb.png', 'hurricanec.png']
+    data.hurricaneIcons = []
+    for i in range(len(hurricaneIcons)):
+        data.hurricaneIcons.append(ImageTk.PhotoImage(file='img\\' +
+                                                      hurricaneIcons[i]))
+
 
 def keyPressed(event, data):
     global Culture, Polity
@@ -97,8 +109,13 @@ def keyPressed(event, data):
                         data.paused = True
                         data.panels.append(escPanel)
                         redrawAll(data.canvas, data)
-            elif event.keysym == 'v':
-                print(data.activeCity.buildings)
+
+            # --- Debug Stuff ---
+
+            elif event.keysym == 'f':
+                data.activeCity.disasters['Fire'] = fire.baseDuration
+            elif event.keysym == 'h':
+                data.activeCity.disasters['Hurricane'] = hurricane.baseDuration
             elif event.keysym == 'w':
                 print(buildings)
             elif event.keysym == 'x':
@@ -139,16 +156,15 @@ def timerFired(canvas, data):
         data.globeFrame = (data.globeFrame + 1) % 200
         redrawAll(canvas, data)
     elif mapPanel in data.panels:
-        # Handle scrolling
         updateMap = False
-        SCROLL_MARGINS = 250
-        x = data.root.winfo_pointerx() - data.root.winfo_rootx() - MAP_POS[0]
-        y = data.root.winfo_pointery() - data.root.winfo_rooty() - MAP_POS[1]
-        if scroll(data, SCROLL_MARGINS, x, y):
-            updateMap = True
+        x = data.root.winfo_pointerx() - data.root.winfo_rootx()
+        y = data.root.winfo_pointery() - data.root.winfo_rooty()
+        for panel in data.panels[::-1]:
+            if panel.hover([x, y], data):
+                break
         if not data.paused:
             data.ticks += 1
-            if data.ticks == data.tickRate:
+            if data.ticks > data.tickRate:
                 data.ticks = 0
                 if isinstance(data.map, Map):
                     data.map.update(data)
@@ -160,10 +176,7 @@ def timerFired(canvas, data):
             mapPanel.redraw(canvas, data)
 
         if data.clicking:
-            mousePressed([data.root.winfo_pointerx() - data.root.winfo_rootx(),
-                          data.root.winfo_pointery() - data.root.winfo_rooty()
-                          ],
-                         data)
+            mousePressed([x, y], data)
 
         redrawNotMap(canvas, data)
 
@@ -180,6 +193,7 @@ def init(canvas, data):
 
     data.panels = [preloaderPanel]
     data.activeCity = None
+    data.map = None
 
     data.messages = ['Ironing Laundry',
                      '... Carthago Delando Est',

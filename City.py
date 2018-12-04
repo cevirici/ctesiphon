@@ -7,8 +7,10 @@
 from Biome import *
 from Buildings import *
 from CityCulture import *
+from Disaster import *
 from Graphics import *
 from Geometry import dist
+from Language import printWord
 from random import random, choice
 from copy import copy
 
@@ -55,7 +57,7 @@ class City:
 
         self.polity = None
 
-        self.john = False
+        self.disasters = {}
 
     # def __hash__(self):
     #     return hash(self.center)
@@ -165,6 +167,29 @@ class City:
                     if b.name not in self.buildings:
                         self.currentBuilding = b
                         break
+
+    def disasterTick(self):
+        # Disaster spawning and ticking
+        newDisasters = {}
+        if 'Fire' not in self.disasters:
+            if not self.isSea():
+                if random() < (self.temp - 0.63) ** 3:
+                    self.disasters['Fire'] = fire.baseDuration
+
+        if 'Hurricane' not in self.disasters:
+            if self.isSea():
+                if random() < (max(0, self.temp - 0.53)) ** 2:
+                    self.disasters['Hurricane'] = hurricane.baseDuration
+
+        for dName in self.disasters:
+            for disaster in disasters:
+                if disaster.name == dName:
+                    disaster.tick(self)
+                    if self.disasters[dName] > 0:
+                        newDisasters[dName] = self.disasters[dName]
+                    break
+
+        self.disasters = newDisasters
 
     # --- Migration ---
 
@@ -405,6 +430,8 @@ class City:
         for culture in self.mergePressures:
             if self.mergePressures[culture] > MERGE_THRESHOLD:
                 merge(self, culture)
+
+        self.disasterTick()
         assimilate(self)
 
     def postTick(self):
@@ -417,8 +444,6 @@ class City:
     def draw(self, canvas, data):
         sVertices = [scale(vertex, data) for vertex in self.vertices]
         baseColor = biomes[self.biome].getColor(self)
-        if self.john:
-            baseColor = (255, 0, 0)
 
         if data.drawMode == 0 or self.biome in ['Lake', 'Ocean']:
             color = baseColor
@@ -468,6 +493,37 @@ class City:
                               outline='',
                               tag='map')
 
+    def getToolTip(self, data):
+        # Returns the appropriate tooltip for the current mapmode
+        if data.drawMode == 0:
+            return printWord(self.name).capitalize()
+        elif data.drawMode == 1:
+            return 'Hydration: {:.2f}'.format(self.wetness)
+        elif data.drawMode == 2:
+            return 'Temperature: {:.2f}'.format(self.temp)
+        elif data.drawMode == 3:
+            return 'Fertility: {:.2f}'.format(self.fertility)
+        elif data.drawMode == 4:
+            return 'Vegetation: {:.2f}'.format(self.vegetation)
+        elif data.drawMode == 5:
+            if self.maxCulture:
+                return printWord(self.maxCulture.name).capitalize()
+            else:
+                return 'Uninhabited'
+        elif data.drawMode == 6:
+            if self.polity:
+                direct = printWord(self.polity.name).capitalize()
+                superLiege = printWord(self.polity.superLiege().
+                                       name).capitalize()
+                if direct != superLiege:
+                    return '{} - under {}'.format(direct, superLiege)
+                else:
+                    return direct
+            else:
+                return 'No Polity'
+        elif data.drawMode == 7:
+            return str(int(self.population))
+
     def drawDecorations(self, canvas, data):
         if self.cityLevel > 0:
             sprite = data.cityIcons[self.cityLevel - 1]
@@ -489,3 +545,16 @@ class City:
                                     outline='white',
                                     fill=rgbToColor(army.owner.color),
                                     tag='map')
+
+        # --- Hurricane ---
+
+        if 'Fire' in self.disasters:
+            frame = self.disasters['Fire'] % len(data.fireIcons)
+            canvas.create_image(scale(self.center, data),
+                                image=data.fireIcons[frame],
+                                tag='map')
+        if 'Hurricane' in self.disasters:
+            frame = self.disasters['Hurricane'] % len(data.hurricaneIcons)
+            canvas.create_image(scale(self.center, data),
+                                image=data.hurricaneIcons[frame],
+                                tag='map')
