@@ -185,9 +185,10 @@ def makeMap(canvas, data):
     data.map.spawnCultures()
 
     canvas.delete('bricks')
-    redrawAll(canvas, data)
     removePanel(canvas, data, loadPanel)
     data.panels.insert(0, mapPanel)
+    data.panels.append(terraPanel)
+    data.terraform = True
     redrawAll(canvas, data)
     data.ticks = -1
 
@@ -405,6 +406,53 @@ def drawMap(canvas, data):
     data.map.draw(canvas, data)
 
 
+def terraform(data, mode):
+    if mode in [2, 3]:
+        # Raise altitude
+        queue = [(data.brushCenter, data.terraformBrush)]
+        handled = set()
+        while len(queue) > 0:
+            city, depth = queue.pop(0)
+            if city not in handled:
+                # Splice in vertices into border
+                handled.add(city)
+                amount = 0.05 / (2 ** (data.terraformBrush - depth))
+                if mode == 3:
+                    amount *= -1
+                city.altitude += amount
+                city.altitude = max(0, min(city.altitude, 1))
+                if depth > 1:
+                    for n in city.neighbors:
+                        if n not in handled:
+                            queue.append((n, depth - 1))
+
+    elif mode == 4:
+        for city in data.brushCities:
+            if city.isSea():
+                city.altitude = 0.01
+
+    elif mode == 5:
+        for city in data.brushCities:
+            if not city.isSea():
+                city.altitude = 0
+                city.biome = 'Lake'
+
+    elif mode == 6:
+        kellyRiver = generateRiver(data.map, data.brushCenter, set())
+        if kellyRiver:
+            if len(kellyRiver) > 1:
+                data.map.rivers.append(kellyRiver)
+
+    elif mode == 7:
+        newRivers = []
+        for river in data.map.rivers:
+            if river[0] not in data.brushCities:
+                newRivers.append(river)
+        data.map.rivers = newRivers
+
+    recalculate(data.map)
+
+
 def clickMap(coords, data, held):
     x = coords[0] - MAP_POS[0]
     y = coords[1] - MAP_POS[1]
@@ -413,18 +461,21 @@ def clickMap(coords, data, held):
                       y / data.zoom + data.viewPos[1]]
         closest = data.map.findClosestCity(clickPoint, data)
         if closest:
-            data.activeCity = closest
-            # If in culture mode, swap to culture
-            if culturePanel in data.panels:
-                if data.activeCity.maxCulture:
-                    data.activeCulture = data.activeCity.maxCulture
-                else:
-                    data.panels.remove(culturePanel)
-                    data.panels.append(cityPanel)
+            if data.terraform:
+                terraform(data, data.terraformMode)
             else:
-                if cityPanel in data.panels:
-                    data.panels.remove(cityPanel)
-                data.panels.append(cityPanel)
+                data.activeCity = closest
+                # If in culture mode, swap to culture
+                if culturePanel in data.panels:
+                    if data.activeCity.maxCulture:
+                        data.activeCulture = data.activeCity.maxCulture
+                    else:
+                        data.panels.remove(culturePanel)
+                        data.panels.append(cityPanel)
+                else:
+                    if cityPanel in data.panels:
+                        data.panels.remove(cityPanel)
+                    data.panels.append(cityPanel)
         else:
             data.activeCity = None
             data.panels = [mapPanel, hudPanel]
@@ -454,6 +505,38 @@ def hoverMap(coords, data):
         data.toolTipText = closest.getToolTip(data)
         if toolTipPanel not in data.panels:
             data.panels.append(toolTipPanel)
+
+        # Highlight hover brush
+        if data.terraform:
+            if closest != data.brushCenter:
+                data.brushCenter = closest
+                queue = [(closest, data.terraformBrush)]
+                data.brushCities = set()
+                data.brushBorder = set()
+                superBorder = set()
+                while len(queue) > 0:
+                    city, depth = queue.pop(0)
+                    if city not in data.brushCities:
+                        # Splice in vertices into border
+                        edges = [tuple(city.vertices[i: i + 2])
+                                 for i in range(len(city.vertices) - 1)]
+                        edges.append((city.vertices[-1], city.vertices[0]))
+                        for edge in edges:
+                            if edge[0][0] > edge[1][0]:
+                                edge = (edge[1], edge[0])
+                            if edge in data.brushBorder:
+                                data.brushBorder.remove(edge)
+                                superBorder.add(edge)
+                            elif edge not in superBorder:
+                                data.brushBorder.add(edge)
+
+                        data.brushCities.add(city)
+                        if depth > 1:
+                            for n in city.neighbors:
+                                if n not in data.brushCities:
+                                    queue.append((n, depth - 1))
+
+                redrawAll(data.canvas, data)
         return
 
     if toolTipPanel in data.panels:
@@ -509,6 +592,13 @@ def drawHud(canvas, data):
                                 tag='HUD')
 
 
+def unPause(data):
+    data.paused = not data.paused
+    data.terraform = False
+    if terraPanel in data.panels:
+        data.panels.remove(terraPanel)
+
+
 def clickHud(coords, data, held):
     positions = [[980 + (i % 5) * 50,
                   140 + (i // 5) * 40] for i in range(len(data.buttons))]
@@ -527,8 +617,8 @@ def clickHud(coords, data, held):
     if not held:
         # Pause button
         if coords[0] > data.width - 50 and coords[1] < 50:
-            data.paused = not data.paused
             clicked = True
+            unPause(data)
 
         # Speed control
         if data.width - 75 < coords[0] < data.width - 55 and \
@@ -1174,3 +1264,78 @@ def drawToolTip(canvas, data):
 
 toolTipPanel = Panel('tooltip', drawToolTip, noClick, noScroll, noHover,
                      [[0, 0], [0, 0]])
+
+
+# --- Terraforming ---
+
+def drawTerraform(canvas, data):
+    buttonPositions = [[1060 + (i % 2) * 80, 440 + (i // 2) * 60]
+                       for i in range(len(data.terraButtons))]
+    for i in range(len(buttonPositions)):
+        if i == data.terraformMode:
+            corner = [buttonPositions[i][0] - 22,
+                      buttonPositions[i][1] - 17]
+            bottomCorner = [corner[0] + 44, corner[1] + 34]
+            canvas.create_rectangle(corner, bottomCorner,
+                                    fill=rgbToColor(HIGHLIGHT), width=0,
+                                    tag='terra')
+        canvas.create_image(buttonPositions[i],
+                            image=data.terraButtons[i],
+                            tag='terra')
+
+    canvas.create_text([1100, 750], width=250,
+                       font=HUD_FONT, fill='white',
+                       text='Unpause to end terraform mode',
+                       tag='terra')
+
+
+def clickTerraform(coords, data, held):
+    positions = [[1060 + (i % 2) * 80, 440 + (i // 2) * 60]
+                 for i in range(len(data.terraButtons))]
+    size = [20, 15]
+
+    # Map Mode buttons
+    for i in range(len(positions)):
+        if positions[i][0] - size[0] <= coords[0] <= \
+                positions[i][0] + size[0] and \
+                positions[i][1] - size[1] <= coords[1] <= \
+                positions[i][1] + size[1]:
+            if i not in [0, 1]:
+                data.terraformMode = i
+            elif not held:
+                data.terraformBrush += 1 - i * 2
+                data.terraformBrush = max(1, min(6, data.terraformBrush))
+
+
+def hoverTerraform(coords, data):
+    positions = [[1060 + (i % 2) * 80, 440 + (i // 2) * 60]
+                 for i in range(len(data.terraButtons))]
+    size = [20, 15]
+
+    tooltips = ['Increase Brush Size',
+                'Reduce Brush Size',
+                'Raise Altitude',
+                'Lower Altitude',
+                'Make Land',
+                'Make Ocean',
+                'Spawn River',
+                'Delete River']
+    for i in range(len(positions)):
+        if positions[i][0] - size[0] <= coords[0] <= \
+                positions[i][0] + size[0] and \
+                positions[i][1] - size[1] <= coords[1] <= \
+                positions[i][1] + size[1]:
+            data.toolTipPos = [1100, positions[i][1] + 20]
+            data.toolTipBox = [1000, positions[i][1] + 5,
+                               1200, positions[i][1] + 35]
+            data.toolTipText = tooltips[i]
+            if toolTipPanel not in data.panels:
+                data.panels.append(toolTipPanel)
+            return
+
+    if toolTipPanel in data.panels:
+        data.panels.remove(toolTipPanel)
+
+
+terraPanel = Panel('terra', drawTerraform, clickTerraform, noScroll,
+                   hoverTerraform, [[936, 221], [1256, 821]])

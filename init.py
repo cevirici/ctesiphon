@@ -14,7 +14,8 @@ setrecursionlimit(30000)
 
 
 def loadImages(data):
-    # Preload images into data
+    # Preload images into data. We need to store every one of these images else
+    # they get garbage collected for some reason
     data.globeImages = []
     for i in range(200):
         filePath = 'img\\globe\\{:0>4}.png'.format(i + 1)
@@ -42,6 +43,20 @@ def loadImages(data):
     data.buttons = []
     for i in range(len(buttonimages)):
         data.buttons.append(ImageTk.PhotoImage(file='img\\' + buttonimages[i]))
+
+    terraimages = ['terra-larger.png',
+                   'terra-smaller.png',
+                   'terra-up.png',
+                   'terra-down.png',
+                   'terra-grass.png',
+                   'terra-water.png',
+                   'terra-river.png',
+                   'terra-noriver.png']
+    data.terraButtons = []
+    for i in range(len(terraimages)):
+        data.terraButtons.append(ImageTk.PhotoImage(file='img\\' +
+                                                    terraimages[i]))
+
     data.sidebarImage = ImageTk.PhotoImage(file='img\\cityHud.png')
     data.cultureImage = ImageTk.PhotoImage(file='img\\cultureHud.png')
     data.buildingImage = ImageTk.PhotoImage(file='img\\buildingHud.png')
@@ -84,8 +99,8 @@ def loadImages(data):
     hurricaneIcons = ['hurricanea.png', 'hurricaneb.png', 'hurricanec.png']
     data.hurricaneIcons = []
     for i in range(len(hurricaneIcons)):
-        data.hurricaneIcons.append(ImageTk.PhotoImage(file='img\\' +
-                                                      hurricaneIcons[i]))
+        data.hurricaneIcons.append(PIL.Image.open('img\\' +
+                                                  hurricaneIcons[i]))
 
 
 def keyPressed(event, data):
@@ -99,7 +114,7 @@ def keyPressed(event, data):
     else:
         if data.map:
             if event.keysym == 'space':
-                data.paused = not data.paused
+                unPause(data)
             elif event.keysym == 'Escape':
                 if data.map:
                     if escPanel in data.panels:
@@ -113,11 +128,16 @@ def keyPressed(event, data):
             # --- Debug Stuff ---
 
             elif event.keysym == 'f':
-                data.activeCity.disasters['Fire'] = fire.baseDuration
+                if data.activeCity:
+                    data.activeCity.disasters['Fire'] = fire.baseDuration
             elif event.keysym == 'h':
-                data.activeCity.disasters['Hurricane'] = hurricane.baseDuration
+                if data.activeCity:
+                    data.activeCity.disasters['Hurricane'] = \
+                        hurricane.baseDuration
             elif event.keysym == 'w':
-                print(buildings)
+                print(data.terraform)
+                print(data.brushCenter)
+                print(data.brushCities)
             elif event.keysym == 'x':
                 for war in War.wars:
                     print('Attackers:')
@@ -190,6 +210,7 @@ def init(canvas, data):
     data.scrolling = 0
     data.paused = True
     data.clicking = False
+    data.terraform = False
 
     data.panels = [preloaderPanel]
     data.activeCity = None
@@ -227,6 +248,12 @@ def init(canvas, data):
 
     data.mapSize = [data.cityCount ** 0.5 * 20, data.cityCount ** 0.5 * 20]
     data.viewSize = VIEW_SIZE
+
+    data.terraformBrush = 2
+    data.terraformMode = -1
+    data.brushCenter = None
+    data.brushCities = set()
+    data.brushBorder = []
 
     redrawAll(canvas, data)
     preloaderPanel.wipe(canvas)

@@ -344,27 +344,28 @@ class City:
         oldMax = self.maxCulture
         # Population
         newCultures = {}
+        # Make sure we don't have mermaids
+        if not self.isSea():
+            for culture in self.cultures:
+                if self.cultures[culture] >= 1:
+                    newCultures[culture] = self.cultures[culture]
 
-        for culture in self.cultures:
-            if self.cultures[culture] >= 1:
-                newCultures[culture] = self.cultures[culture]
+            if newCultures:
+                self.maxCulture = sorted(newCultures,
+                                         key=lambda x: newCultures[x])[-1]
+            else:
+                self.maxCulture = None
 
-        if newCultures:
-            self.maxCulture = sorted(newCultures,
-                                     key=lambda x: newCultures[x])[-1]
-        else:
-            self.maxCulture = None
+            if self.maxCulture != oldMax:
+                self.takeover(oldMax)
 
-        if self.maxCulture != oldMax:
-            self.takeover(oldMax)
+            self.cultures = newCultures
 
-        self.cultures = newCultures
-
-        # Armies
-        newArmies = copy(self.armies)
-        for army in newArmies:
-            if army.size < 1:
-                army.demobilize()
+            # Armies
+            newArmies = copy(self.armies)
+            for army in newArmies:
+                if army.size < 1:
+                    army.demobilize()
 
     def immigrate(self):
         # Executes on the immigrants entering
@@ -553,8 +554,14 @@ class City:
             canvas.create_image(scale(self.center, data),
                                 image=data.fireIcons[frame],
                                 tag='map')
+
         if 'Hurricane' in self.disasters:
             frame = self.disasters['Hurricane'] % len(data.hurricaneIcons)
+            scaleSize = int(self.radius * data.zoom * 2.5)
+            baseImage = data.hurricaneIcons[frame]
+            scaleImage = baseImage.resize([scaleSize, scaleSize],
+                                          PIL.Image.ANTIALIAS)
+            data.temp = PIL.ImageTk.PhotoImage(scaleImage)
             canvas.create_image(scale(self.center, data),
-                                image=data.hurricaneIcons[frame],
+                                image=data.temp,
                                 tag='map')

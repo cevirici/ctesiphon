@@ -5,6 +5,7 @@
 # # --- --- --- ---
 
 from Geometry import dist
+import PIL
 
 # --- Constants ---
 
@@ -14,6 +15,7 @@ FOREST_COLOR = (19, 82, 11)
 OCEAN_COLOR = (125, 144, 225)
 DARK_OCEAN = (25, 44, 225)
 HIGHLIGHT = (235, 248, 95)
+HIGHLIGHT_RED = (235, 95, 95)
 DRY_COLOR = (242, 244, 114)
 COLD_COLOR = (99, 235, 255)
 HOT_COLOR = (242, 56, 56)

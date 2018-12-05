@@ -156,4 +156,22 @@ class Map:
                                   width=1.5 * data.zoom,
                                   tag='map')
 
+        if data.terraform:
+            if data.brushBorder:
+                for edge in data.brushBorder:
+                    sVertices = [scale(vertex, data) for vertex in
+                                 edge]
+                    canvas.create_line(sVertices,
+                                       fill=rgbToColor(HIGHLIGHT),
+                                       width=2,
+                                       tag='map')
+            if data.brushCenter:
+                sVertices = [scale(vertex, data) for vertex in
+                             data.brushCenter.vertices]
+                canvas.create_polygon(sVertices,
+                                      fill='',
+                                      outline=rgbToColor(HIGHLIGHT_RED),
+                                      width=2,
+                                      tag='map')
+
         self.drawCities(canvas, data)

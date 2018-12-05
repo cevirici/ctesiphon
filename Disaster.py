@@ -53,27 +53,37 @@ def fireTick(city):
 
 def hurricaneTick(city):
     if city.disasters['Hurricane'] > 0:
-        targets = [n for n in city.neighbors if 'Hurricane' not in n.disasters]
+        targets = [n for n in city.neighbors if 'Hurricane' not in
+                   n.disasters and n.temp > city.temp]
+        targets.sort(key=lambda c: c.temp)
         if targets:
-            target = choice(targets)
+            target = targets[0]
             target.disasters['Hurricane'] = -city.disasters['Hurricane'] + 1
 
-        for culture in city.cultures:
-            city.cultures[culture] *= 0.60
+        # Wreck stuff
+        def wreck(city, factor):
+            for culture in city.cultures:
+                city.cultures[culture] *= 1 - 1 / factor
 
-        city.population = sum([city.cultures[c] for c in city.cultures])
+            city.population = sum([city.cultures[c] for c in city.cultures])
 
-        city.progress -= city.currentBuilding.requirement / 2
-        if city.progress < 0:
-            if city.buildings:
-                target = choice(list(city.buildings))
-                for building in buildings:
-                    if building.name == target:
-                        building.destroy(city)
-                city.buildings.remove(target)
-                city.progress = city.currentBuilding.requirement / 2
-            else:
-                city.progress = 0
+            city.progress -= city.currentBuilding.requirement / factor
+            if city.progress < 0:
+                if city.buildings:
+                    target = choice(list(city.buildings))
+                    for building in buildings:
+                        if building.name == target:
+                            building.destroy(city)
+                    city.buildings.remove(target)
+                    city.progress = city.currentBuilding.requirement / 2
+                else:
+                    city.progress = 0
+
+        wreck(city, 2)
+        # Wreck neighbors' stuff
+        for n in city.neighbors:
+            wreck(n, 10)
+
         city.disasters['Hurricane'] = 0
     elif city.disasters['Hurricane'] < 0:
         city.disasters['Hurricane'] = -city.disasters['Hurricane']

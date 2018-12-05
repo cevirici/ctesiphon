@@ -330,7 +330,10 @@ def setBiomes(map):
     for coords in map.cities:
         c = map.cities[coords]
         if c.biome in ['Ocean', 'Lake']:
-            continue
+            if c.isSea():
+                continue
+            else:
+                c.biome = 'Grassland'
         elif c.hydration < 0.3 and c.temp > 0.5:
             c.biome = 'Desert'
             c.fertility /= 5
@@ -349,8 +352,18 @@ def setBiomes(map):
         elif c.altitude > 0.4:
             c.biome = 'Highlands'
             c.fertility *= 0.8
-    
+
         c.capacity = c.fertility * 250
+
+
+def recalculate(map):
+    findLakes(map)
+    setWetness(map)
+    setHydration(map)
+    setTemperature(map)
+    setFertility(map)
+    setVegetation(map)
+    setBiomes(map)
 
 
 def initializeTerrain(map):
