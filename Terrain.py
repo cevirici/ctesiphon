@@ -171,7 +171,7 @@ def generateRiver(map, source, sources):
                 break
         river.append(nextCity)
         head.downstream = nextCity
-        if nextCity.biome == 'Grassland':
+        if not nextCity.isSea():
             nextCity.biome = 'Flood Plain'
         head = nextCity
 

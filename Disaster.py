@@ -54,10 +54,9 @@ def fireTick(city):
 def hurricaneTick(city):
     if city.disasters['Hurricane'] > 0:
         targets = [n for n in city.neighbors if 'Hurricane' not in
-                   n.disasters and n.temp > city.temp]
-        targets.sort(key=lambda c: c.temp)
+                   n.disasters and n.temp > city.temp * 0.9]
         if targets:
-            target = targets[0]
+            target = choice(targets)
             target.disasters['Hurricane'] = -city.disasters['Hurricane'] + 1
 
         # Wreck stuff

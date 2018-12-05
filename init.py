@@ -134,18 +134,6 @@ def keyPressed(event, data):
                 if data.activeCity:
                     data.activeCity.disasters['Hurricane'] = \
                         hurricane.baseDuration
-            elif event.keysym == 'w':
-                print(data.terraform)
-                print(data.brushCenter)
-                print(data.brushCities)
-            elif event.keysym == 'x':
-                for war in War.wars:
-                    print('Attackers:')
-                    for polity in war.attackers:
-                        print(printWord(polity.name).capitalize(), end=', ')
-                    print('Defenders:')
-                    for polity in war.defenders:
-                        print(printWord(polity.name).capitalize(), end=', ')
 
 
 def mousePressed(coords, data, held=True):

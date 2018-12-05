@@ -557,11 +557,6 @@ class City:
 
         if 'Hurricane' in self.disasters:
             frame = self.disasters['Hurricane'] % len(data.hurricaneIcons)
-            scaleSize = int(self.radius * data.zoom * 2.5)
-            baseImage = data.hurricaneIcons[frame]
-            scaleImage = baseImage.resize([scaleSize, scaleSize],
-                                          PIL.Image.ANTIALIAS)
-            data.temp = PIL.ImageTk.PhotoImage(scaleImage)
             canvas.create_image(scale(self.center, data),
-                                image=data.temp,
+                                image=data.hurricaneIcons[frame],
                                 tag='map')
