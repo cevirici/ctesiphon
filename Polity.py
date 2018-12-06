@@ -111,10 +111,13 @@ class Polity:
     def moveArmies(self, targets):
         for target in self.targets:
             armyList = sorted(self.armies,
-                              key=lambda x: dist(x.location, target))
+                              key=lambda x: dist(x.location.center,
+                                                 target.center))
             c = 0
             while armyList[c].instructions:
                 c += 1
+                if c >= len(armyList):
+                    break
             if c < len(armyList):
                 path = armyList[c].pathfind(armyList[c].location, targets[0])
                 if path:
