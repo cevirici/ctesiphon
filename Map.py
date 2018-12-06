@@ -101,6 +101,8 @@ class Map:
         # Tick polities
         for polity in Polity.polities:
             polity.tick()
+        for war in War.wars:
+            war.checkExits()
 
     # --- Drawing ---
 

@@ -42,6 +42,8 @@ class Polity:
         self.relations = {}
         self.armies = set()
         self.wars = set()
+        self.enemies = set()
+        self.targets = []
 
         Polity.polities.append(self)
 
@@ -91,11 +93,28 @@ class Polity:
 
         return (cultureFactor * distFactor) ** (1 / projection)
 
-    def moveArmiesToCapital(self):
+    def getTargets(self):
+        count = self.armyCount() // self.capital.garrison
+        targets = [self.capital]
+        for war in self.wars:
+            targets.append(war.warGoal)
+
+        cities = sorted(list(self.territories), key=lambda x: x.population)
+        for i in range(count - len(targets)):
+            if i + 1 < len(cities):
+                targets.append(cities[i + 1])
+            else:
+                break
+
+        return targets[:count]
+
+    def moveArmies(self, targets):
         for army in self.armies:
-            if army.location != self.capital:
+            if army.location not in targets:
+                targets.sort(key=lambda x: dist(x.center,
+                                                army.location.center))
                 if not army.instructions and not army.sleep:
-                    path = army.pathfind(army.location, self.capital)
+                    path = army.pathfind(army.location, targets[0])
                     if path:
                         army.instructions = path
                     else:
@@ -188,6 +207,13 @@ class Polity:
             for territory in self.territories:
                 self.mobilize(territory)
 
+        if len(self.armies) < self.targets:
+            original = self.armies.pop()
+            newArmy = Army(original.location, self, original.size // 2)
+            original.size -= original.size // 2
+            self.armies.append(original)
+            self.armies.append(newArmy)
+
     # --- Interactions ---
 
     def shiftRelations(self, target, amount):
@@ -274,15 +300,22 @@ class Polity:
         if self.capital.maxCulture:
             self.culture = self.capital.maxCulture
 
+        self.mergeArmies()
+        self.enemies = set()
+        for war in self.wars:
+            if self in war.attackers:
+                self.enemies.update(war.defenders)
+            else:
+                self.enemies.update(war.attackers)
+
+        self.targets = self.getTargets()
         self.generalMobilize()
-        if not self.wars:
-            self.moveArmiesToCapital()
+        self.moveArmies(self.targets)
         self.independence()
 
         for army in self.armies:
             army.move()
-
-        self.mergeArmies()
+            army.fight()
 
         self.weightedPop = sum([c.population for c in self.territories]) + \
             sum([subject.weightedPop for subject in self.subjects]) / 2

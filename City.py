@@ -530,6 +530,11 @@ class City:
             sprite = data.cityIcons[self.cityLevel - 1]
             canvas.create_image(scale(self.center, data),
                                 image=sprite, tag='map')
+        if self.cityLevel > 1:
+            canvas.create_text(scale(self.center, data),
+                               font=HUD_FONT, fill='white',
+                               text=printWord(self.name).capitalize(),
+                               tag='map')
 
         n = len(self.armies) + 1
         i = 0

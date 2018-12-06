@@ -17,3 +17,16 @@ class War:
         self.initialStates = {}
 
         War.wars.add(self)
+
+    def leaveWar(self, polity):
+        self.belligerents.remove(polity)
+        if polity in self.attackers:
+            self.attackers.remove(polity)
+        else:
+            self.defenders.remove(polity)
+        polity.wars.remove(self)
+
+    def checkExits(self):
+        for p in self.belligerents:
+            if p.weightedPop < 0.6 * self.initialStates[p]:
+                self.leaveWar(p)

@@ -99,8 +99,8 @@ def loadImages(data):
     hurricaneIcons = ['hurricanea.png', 'hurricaneb.png', 'hurricanec.png']
     data.hurricaneIcons = []
     for i in range(len(hurricaneIcons)):
-        data.hurricaneIcons.append(PIL.Image.open('img\\' +
-                                                  hurricaneIcons[i]))
+        data.hurricaneIcons.append(ImageTk.PhotoImage(file='img\\' +
+                                                      hurricaneIcons[i]))
 
 
 def keyPressed(event, data):

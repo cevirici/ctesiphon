@@ -5,6 +5,7 @@
 # # --- --- --- ---
 
 from Geometry import dist
+from random import random
 
 
 class Army:
@@ -44,3 +45,32 @@ class Army:
             trial = self.pathfind(c, target, checked)
             if trial:
                 return [start] + trial
+
+    def fight(self):
+        here = self.location
+        for army in here:
+            if army.owner in self.owner.enemies:
+                army.size -= self.size * random()
+                self.size -= army.size * random()
+
+                if army.size <= 0:
+                    army.demobilize()
+                if self.size <= 0:
+                    self.demobilize()
+            if here.polity in self.owner.enemies:
+                if here.garrison > 0:
+                    here.garrison -= self.size * random()
+                    self.size -= here.garrison * random() * 2
+
+                    if self.size <= 0:
+                        self.demobilize()
+                if here.garrison <= 0:
+                    if here != here.polity.capital:
+                        here.polity = self.owner
+                        here.garrison = self.size
+                        self.demobilize()
+                    else:
+                        here.polity.liege = self.owner
+                        for war in here.polity.wars:
+                            if self.owner in war.belligerents:
+                                war.leaveWar(here.polity)
