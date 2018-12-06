@@ -95,33 +95,30 @@ class Polity:
 
     def getTargets(self):
         count = int(self.armyCount() // (self.capital.garrisonMax + 1))
-        targets = [self.capital]
+        targets = []
         for war in self.wars:
             targets.append(war.warGoal)
 
-        cities = sorted(list(self.territories), key=lambda x: x.population)
+        cities = sorted(list(self.territories), key=lambda x: -x.population)
         for i in range(count - len(targets)):
-            if i + 1 < len(cities):
-                targets.append(cities[i + 1])
+            if i < len(cities):
+                targets.append(cities[i])
             else:
                 break
 
         return targets[:count]
 
     def moveArmies(self, targets):
-        for army in self.armies:
-            if army.location not in targets:
-                if targets:
-                    targets.sort(key=lambda x: dist(x.center,
-                                                    army.location.center))
-                    if not army.instructions and not army.sleep:
-                        path = army.pathfind(army.location, targets[0])
-                        if path:
-                            army.instructions = path
-                        else:
-                            army.sleep = True
-            else:
-                army.sleep = True
+        for target in self.targets:
+            armyList = sorted(self.armies,
+                              key=lambda x: dist(x.location, target))
+            c = 0
+            while armyList[c].instructions:
+                c += 1
+            if c < len(armyList):
+                path = armyList[c].pathfind(armyList[c].location, targets[0])
+                if path:
+                    armyList[c].instructions = path
 
     def mergeArmies(self):
         idlers = {}
@@ -212,8 +209,9 @@ class Polity:
             original = self.armies.pop()
             newArmy = Army(original.location, self, original.size // 2)
             original.size -= original.size // 2
-            self.armies.append(original)
-            self.armies.append(newArmy)
+            self.armies.add(original)
+            self.armies.add(newArmy)
+            original.location.armies.add(newArmy)
 
     # --- Interactions ---
 
@@ -303,11 +301,21 @@ class Polity:
 
         self.mergeArmies()
         self.enemies = set()
+        toLeave = set()
         for war in self.wars:
             if self in war.attackers:
-                self.enemies.update(war.defenders)
+                if self.liege in war.defenders:
+                    toLeave.add(war)
+                else:
+                    self.enemies.update(war.defenders)
             else:
-                self.enemies.update(war.attackers)
+                if self.liege in war.attackers:
+                    toLeave.add(war)
+                else:
+                    self.enemies.update(war.attackers)
+
+        for war in toLeave:
+            self.wars.discard(war)
 
         self.targets = self.getTargets()
         self.generalMobilize()

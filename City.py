@@ -137,10 +137,11 @@ class City:
             self.production = self.population * (self.maxCulture['AGRI'] *
                                                  self.fertility *
                                                  self.farmEff)
-            excess = self.production - self.builders - \
-                sum([army.size for army in self.armies])
+            factor = 1
             if self.supplies > self.capacity * self.storageEff:
-                excess *= 1.1
+                factor = 1.1
+            excess = factor * self.production - self.builders - \
+                sum([army.size for army in self.armies])
             # Proportion of excess to conscript
             ratio = self.maxCulture['MILITANCE']
             if excess > 0:

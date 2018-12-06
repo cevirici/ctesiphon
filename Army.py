@@ -14,7 +14,6 @@ class Army:
         self.owner = owner
         self.size = size
         self.instructions = []
-        self.sleep = False
 
     def demobilize(self):
         self.location.armies.remove(self)
@@ -71,6 +70,3 @@ class Army:
                         self.demobilize()
                     else:
                         here.polity.liege = self.owner
-                        for war in here.polity.wars:
-                            if self.owner in war.belligerents:
-                                war.leaveWar(here.polity)
