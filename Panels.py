@@ -1179,14 +1179,17 @@ def clickBuilding(coords, data, held):
                 if build.name in ac.buildings:
                     ac.buildings.remove(build.name)
                     build.destroy(ac)
+                    for b in buildings:
+                        if b not in ac.buildings:
+                            ac.currentBuilding = b
+                            break
                 else:
                     ac.buildings.add(build.name)
                     build.build(ac)
-                    if build == ac.currentBuilding:
-                        for b in buildings:
-                            if b not in ac.buildings:
-                                ac.currentBuilding = b
-                                break
+                    for b in buildings:
+                        if b not in ac.buildings:
+                            ac.currentBuilding = b
+                            break
                 buildingPanel.redraw(data.canvas, data)
 
 

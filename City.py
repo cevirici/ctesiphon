@@ -139,6 +139,8 @@ class City:
                                                  self.farmEff)
             excess = self.production - self.builders - \
                 sum([army.size for army in self.armies])
+            if self.supplies > self.capacity * self.storageEff:
+                excess *= 1.1
             # Proportion of excess to conscript
             ratio = self.maxCulture['MILITANCE']
             if excess > 0:
@@ -531,8 +533,9 @@ class City:
             canvas.create_image(scale(self.center, data),
                                 image=sprite, tag='map')
         if self.cityLevel > 1:
-            canvas.create_text(scale(self.center, data),
-                               font=HUD_FONT, fill='white',
+            pos = [self.center[0], self.center[1] + 8]
+            canvas.create_text(scale(pos, data),
+                               font=HUD_FONT_SMALL, fill='white',
                                text=printWord(self.name).capitalize(),
                                tag='map')
 

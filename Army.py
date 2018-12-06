@@ -48,7 +48,7 @@ class Army:
 
     def fight(self):
         here = self.location
-        for army in here:
+        for army in here.armies:
             if army.owner in self.owner.enemies:
                 army.size -= self.size * random()
                 self.size -= army.size * random()

@@ -94,7 +94,7 @@ class Polity:
         return (cultureFactor * distFactor) ** (1 / projection)
 
     def getTargets(self):
-        count = self.armyCount() // self.capital.garrison
+        count = int(self.armyCount() // (self.capital.garrisonMax + 1))
         targets = [self.capital]
         for war in self.wars:
             targets.append(war.warGoal)
@@ -111,14 +111,15 @@ class Polity:
     def moveArmies(self, targets):
         for army in self.armies:
             if army.location not in targets:
-                targets.sort(key=lambda x: dist(x.center,
-                                                army.location.center))
-                if not army.instructions and not army.sleep:
-                    path = army.pathfind(army.location, targets[0])
-                    if path:
-                        army.instructions = path
-                    else:
-                        army.sleep = True
+                if targets:
+                    targets.sort(key=lambda x: dist(x.center,
+                                                    army.location.center))
+                    if not army.instructions and not army.sleep:
+                        path = army.pathfind(army.location, targets[0])
+                        if path:
+                            army.instructions = path
+                        else:
+                            army.sleep = True
             else:
                 army.sleep = True
 
@@ -207,7 +208,7 @@ class Polity:
             for territory in self.territories:
                 self.mobilize(territory)
 
-        if len(self.armies) < self.targets:
+        if len(self.armies) < len(self.targets):
             original = self.armies.pop()
             newArmy = Army(original.location, self, original.size // 2)
             original.size -= original.size // 2
