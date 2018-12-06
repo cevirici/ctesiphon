@@ -138,7 +138,7 @@ class City:
                                                  self.fertility *
                                                  self.farmEff)
             factor = 1
-            if self.supplies > self.capacity * self.storageEff:
+            if self.supplies > self.capacity * self.storageEff / 2:
                 factor = 1.1
             excess = factor * self.production - self.builders - \
                 sum([army.size for army in self.armies])
